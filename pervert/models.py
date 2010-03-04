@@ -25,7 +25,7 @@ def post_save_handler(sender, **kwargs):
     # Create MicroCommit for each modification
     for key, (foreignkey, value) in instance.mods.items():
         
-        if key == "uid": continue
+        if key in "uid": continue
 
         if not foreignkey:
             value = cPickle.dumps(value)
@@ -37,6 +37,10 @@ def post_save_handler(sender, **kwargs):
             key = key,
             value = value
         ).save()
+    
+    # Freaky Django bug or feature causing the dict to carry same items
+    # into next other models. Must be cleared explicitly.
+    instance.mods.clear()
     
 def post_delete_handler(sender, **kwargs):
     if not issubclass(sender, AbstractPervert): return
@@ -167,6 +171,7 @@ class MicroCommit(Model):
 
     def __unicode__(self):
         text = {"cr":"created","md":"modified","dl":"deleted"}[self.ctype]
+        if self.ctype == "md": text += " " + self.key
         text += " " + self.object_uid
         return text
 
