@@ -2,8 +2,6 @@
 from django.contrib import admin
 from pervert.models import *
 from pervert.middleware import threadlocals
-
-
 class PervertAdmin(admin.ModelAdmin):
 
     readonly_fields = ("uid",)
@@ -11,13 +9,13 @@ class PervertAdmin(admin.ModelAdmin):
         actions = super(PervertAdmin, self).get_actions(request)
         # delete_selected doesn't call Model.delete() so it won't work with
         # pervert properly.
-        del actions['delete_selected']
+        #del actions['delete_selected']
         return actions
 
 # For debugging mainly
 class MicroCommitAdmin(admin.ModelAdmin):
     readonly_fields = ("object_uid","ctype","key","value","commit",)
-    list_display = ("ctype","object_uid",)
+    list_display = ("ctype","object_uid","editor","commit",)
 
 class CommitAdmin(admin.ModelAdmin):
     
@@ -133,3 +131,4 @@ class CommitAdmin(admin.ModelAdmin):
 
 admin.site.register(Commit, CommitAdmin)
 admin.site.register(MicroCommit, MicroCommitAdmin)
+

@@ -5,6 +5,70 @@ from django.contrib.auth.models import User, UserManager
 import uuid, cPickle
 from pervert.middleware import threadlocals
 import cPickle
+from django.db.models.signals import post_save, post_delete
+
+def post_save_handler(sender, **kwargs):
+    if not issubclass(sender, AbstractPervert): return
+    
+    instance = kwargs["instance"]
+    editor = Editor.objects.get(user = threadlocals.get_current_user())
+
+    # If this object has not been created yet
+    if not MicroCommit.objects.filter(object_uid=instance.uid):
+        MicroCommit(
+            object_uid = instance.uid,
+            editor = editor,
+            ctype = "cr",
+            value = cPickle.dumps(sender)
+        ).save()
+        
+    # Create MicroCommit for each modification
+    for key, (foreignkey, value) in instance.mods.items():
+        
+        if key == "uid": continue
+
+        if not foreignkey:
+            value = cPickle.dumps(value)
+
+        MicroCommit(
+            object_uid = instance.uid,
+            editor = editor,
+            ctype = "md",
+            key = key,
+            value = value
+        ).save()
+    
+def post_delete_handler(sender, **kwargs):
+    if not issubclass(sender, AbstractPervert): return
+
+    instance = kwargs["instance"]
+    editor = Editor.objects.get(user = threadlocals.get_current_user())
+
+    MicroCommit(
+        object_uid = instance.uid,
+        editor = editor,
+        ctype = "dl"
+    ).save()
+    
+    # WARNING, the following is a monkey-patch. When an object is deleted
+    # from the Django admin, related objects are deleted automatically.
+    # problem is: their delete() method is not executed, making their 
+    # deletion invisible to Pervert. So I'll have to delete them manually
+    # See Model.delete here: 
+    # http://code.djangoproject.com/browser/django/trunk/django/db/models/base.py
+    return 
+    seen_objs = CollectedObjects()
+    self._collect_sub_objects(seen_objs)
+    
+    for (model, objlist) in seen_objs.items():
+        for obj in objlist.values():
+            if obj != self:
+                obj.delete(commit=commit)
+
+
+post_save.connect(post_save_handler)
+post_delete.connect(post_delete_handler)
+
 
 class UUIDVersionError(Exception):
     pass
@@ -40,99 +104,7 @@ class AbstractPervert(Model):
     
     class Meta:
         abstract = True
-    
-    def get_editor(self, kwargs):
-        # If editor is supplied in the kwargs, then take it
-        # otherwise use the authenticated user (this is needed for 
-        # autopopulate script
 
-        if "editor" in kwargs.keys():
-            return kwargs["editor"]
-        return Editor.objects.get(user = threadlocals.get_current_user())
-    
-    def save(self, *args, **kwargs):
-        
-        editor = self.get_editor(kwargs)
-        
-        if "commit" not in kwargs:
-            commit = Commit(editor = editor)
-            commit.save()
-        
-        # If this object has not been created yet
-        if not MicroCommit.objects.filter(object_uid=self.uid):
-            MicroCommit(
-                object_uid = self.uid,
-                commit = commit,
-                ctype = "cr",
-                value = cPickle.dumps(self.__class__)
-            ).save()
-            
-        # Create MicroCommit for each modification
-        for key, (foreignkey, value) in self.mods.items():
-            
-            if not foreignkey:
-                value = cPickle.dumps(value)
-
-            MicroCommit(
-                object_uid = self.uid,
-                commit = commit,
-                ctype = "md",
-                key = key,
-                value = value
-            ).save()
-        
-        if "editor" in kwargs.keys():
-            del kwargs["editor"]
-        if "commit" in kwargs.keys():
-            del kwargs["commit"]
-            
-        super(AbstractPervert, self).save(*args, **kwargs)
-    
-    def delete(self, *args, **kwargs):
-        # see "save" above
-        
-        editor = self.get_editor(kwargs)
-
-        if "commit" not in kwargs:
-            commit = Commit(editor = editor)
-            commit.save()
-        else:
-            commit = kwargs["commit"]
-
-        MicroCommit(
-            object_uid = self.uid,
-            commit = commit,
-            ctype = "dl"
-        ).save()
-        
-        # WARNING, the following is a monkey-patch. When an object is deleted
-        # from the Django admin, related objects are deleted automatically.
-        # problem is: their delete() method is not executed, making their 
-        # deletion invisible to Pervert. So I'll have to delete them manually
-        # See Model.delete here: 
-        # http://code.djangoproject.com/browser/django/trunk/django/db/models/base.py
-        
-        seen_objs = CollectedObjects()
-        self._collect_sub_objects(seen_objs)
-        
-        for (model, objlist) in seen_objs.items():
-            for obj in objlist.values():
-                if obj != self:
-                    obj.delete(commit=commit)
-
-        if "editor" in kwargs.keys():
-            del kwargs["editor"]
-        if "commit" in kwargs.keys():
-            del kwargs["commit"]
-
-        super(AbstractPervert, self).delete(*args, **kwargs)
-
-    def hard_save(self, *args, **kwargs):
-        super(AbstractPervert, self).save(*args, **kwargs)
-        
-    def hard_delete(self, *args, **kwargs):
-        super(AbstractPervert, self).delete(*args, **kwargs)
-        
     # We will store modifications here, to turn them into MicroCommits later
     mods = {}
     def __setattr__(self, key, value):
@@ -159,13 +131,25 @@ class Commit(Model):
     class Meta:
         # Most of the time you will need most recent
         ordering = ['-when']
+
     def __unicode__(self):
         return "%s: %s" % (unicode(self.editor), unicode(self.when))
+
+    def save(self, force_insert=False, force_update=False, commit=True):
+        editor = Editor.objects.get(user = threadlocals.get_current_user())
+        self.editor = editor
+        super(Commit, self).save()
+        # Looks like due to a bug, the code below doesn't work. Temporary workaround below
+        # microcommits = MicroCommit.objects.filter(editor=editor, commit=None)
+        for m in [m for m in MicroCommit.objects.filter(commit=None) if m.editor == editor]:
+            m.commit = self
+            m.save()
 
 class MicroCommit(Model):
     
     object_uid = UUIDField()
-    commit = ForeignKey(Commit, to_field="uid", related_name="microcommits")   
+    commit = ForeignKey(Commit, to_field="uid", related_name="microcommits", null=True)
+    editor = ForeignKey(Editor, to_field="uid", related_name="microcommits")
     # cr md dl
     ctype = CharField(max_length=2)
     # Used for modification microcommits

@@ -17,8 +17,13 @@ class CreationTest(TestCase):
         self.john = Editor(user=self.john)
         self.john.save()
         LanguageKey(code="eng").save(editor=self.john)
+        LanguageKey(code="epo").save(editor=self.john)
+        Concept().save(editor=self.john)
+        Word(full="dog", language=LanguageKey.objects.get(code="eng")).save()
+        Word(full="hundo", language=LanguageKey.objects.get(code="epo")).save()
+        #WordConceptConnection(
         
     def runTest(self):
         self.assertEquals(User.objects.count(), 1)        
-        self.assertEquals(LanguageKey.objects.count(), 1)
+        self.assertEquals(LanguageKey.objects.count(), 2)
 
