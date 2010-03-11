@@ -139,10 +139,10 @@ class Commit(Model):
     def __unicode__(self):
         return "%s: %s" % (unicode(self.editor), unicode(self.when))
 
-    def save(self, force_insert=False, force_update=False, commit=True):
+    def save(self, commit=True, **kwargs):
         editor = Editor.objects.get(user = threadlocals.get_current_user())
         self.editor = editor
-        super(Commit, self).save()
+        super(Commit, self).save(**kwargs)
         # Looks like due to a bug, the code below doesn't work. Temporary workaround below
         # microcommits = MicroCommit.objects.filter(editor=editor, commit=None)
         for m in [m for m in MicroCommit.objects.filter(commit=None) if m.editor == editor]:
