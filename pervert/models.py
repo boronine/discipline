@@ -104,7 +104,7 @@ class Editor(Model):
     objects = UserManager()
  
 class AbstractPervert(Model):
-    uid = UUIDField()
+    uid = UUIDField(primary_key=True)
     
     class Meta:
         abstract = True
