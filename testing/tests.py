@@ -34,14 +34,9 @@ class CreationTest(TestCase):
         WordConceptConnection(concept=concept, word=dog).save()
         WordConceptConnection(concept=concept, word=hundo).save()
         
-        Commit(
-            explanation = "blah blah",
-        ).save()
-        
     def runTest(self):
         self.assertEquals(User.objects.count(), 1)        
         self.assertEquals(LanguageKey.objects.count(), 2)
-        self.assertEquals(MicroCommit.objects.filter(commit=None).count(), 0)
         self.assertEquals(MicroCommit.objects.count(), 17)
 
 

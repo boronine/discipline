@@ -2,26 +2,31 @@
 from django.contrib import admin
 from pervert.models import *
 from pervert.middleware import threadlocals
-class PervertAdmin(admin.ModelAdmin):
 
+class MicroCommitInline(admin.TabularInline):
+    model = MicroCommit
+    extra = 0
+    fields = ("object_uid","commit","ctype","key","value",)
+    readonly_fields = ("object_uid","commit","ctype","key","value")
+
+class PervertAdmin(admin.ModelAdmin):
     readonly_fields = ("uid",)
     def get_actions(self, request):
         actions = super(PervertAdmin, self).get_actions(request)
-        # delete_selected doesn't call Model.delete() so it won't work with
-        # pervert properly.
-        #del actions['delete_selected']
         return actions
 
 # For debugging mainly
 class MicroCommitAdmin(admin.ModelAdmin):
-    readonly_fields = ("object_uid","ctype","key","value","commit",)
-    list_display = ("ctype","object_uid","editor","commit",)
+    readonly_fields = ("object_uid","ctype","key","value",)
+    list_display = ("ctype","object_uid","editor",)
 
+# This will be refactored into MicroCommitAdmin
 class CommitAdmin(admin.ModelAdmin):
     
     readonly_fields = ("uid","editor")
     list_display = ("editor","when","uid","explanation")
     actions = ["undo_commit"]
+    inlines = [MicroCommitInline]
 
     def undo_commit(self, request, queryset):
         
@@ -129,6 +134,5 @@ class CommitAdmin(admin.ModelAdmin):
         del actions['delete_selected']
         return actions
 
-admin.site.register(Commit, CommitAdmin)
 admin.site.register(MicroCommit, MicroCommitAdmin)
 

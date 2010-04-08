@@ -25,7 +25,7 @@ def post_save_handler(sender, **kwargs):
     # Create MicroCommit for each modification
     for key, (foreignkey, value) in instance.mods.items():
         
-        if key in "uid": continue
+        if key in ["uid"]: continue
 
         if not foreignkey:
             value = cPickle.dumps(value)
@@ -39,7 +39,7 @@ def post_save_handler(sender, **kwargs):
         ).save()
     
     # Freaky Django bug or feature causing the dict to carry same items
-    # into next other models. Must be cleared explicitly.
+    # into other models. Must be cleared explicitly.
     instance.mods.clear()
     
 def post_delete_handler(sender, **kwargs):
@@ -54,29 +54,11 @@ def post_delete_handler(sender, **kwargs):
         ctype = "dl"
     ).save()
     
-    # WARNING, the following is a monkey-patch. When an object is deleted
-    # from the Django admin, related objects are deleted automatically.
-    # problem is: their delete() method is not executed, making their 
-    # deletion invisible to Pervert. So I'll have to delete them manually
-    # See Model.delete here: 
-    # http://code.djangoproject.com/browser/django/trunk/django/db/models/base.py
-    return 
-    seen_objs = CollectedObjects()
-    self._collect_sub_objects(seen_objs)
-    
-    for (model, objlist) in seen_objs.items():
-        for obj in objlist.values():
-            if obj != self:
-                obj.delete(commit=commit)
-
-
 post_save.connect(post_save_handler)
 post_delete.connect(post_delete_handler)
 
-
 class UUIDVersionError(Exception):
     pass
-
 
 class UUIDField(CharField):
     def _uuid(self):
@@ -121,38 +103,9 @@ class AbstractPervert(Model):
                 self.mods[key] = (False, value)
         super(AbstractPervert, self).__setattr__(key, value)
         
-class Commit(Model):
-    uid = UUIDField(primary_key=True)
-    editor = ForeignKey(
-        Editor, 
-        related_name = "commits"
-    )
-    when = DateTimeField(
-        auto_now = True,
-        verbose_name = "Commit time"
-    )
-    explanation = CharField(max_length=300,null=True,blank=True)
-    class Meta:
-        # Most of the time you will need most recent
-        ordering = ['-when']
-
-    def __unicode__(self):
-        return "%s: %s" % (unicode(self.editor), unicode(self.when))
-
-    def save(self, commit=True, **kwargs):
-        editor = Editor.objects.get(user = threadlocals.get_current_user())
-        self.editor = editor
-        super(Commit, self).save(**kwargs)
-        # Looks like due to a bug, the code below doesn't work. Temporary workaround below
-        # microcommits = MicroCommit.objects.filter(editor=editor, commit=None)
-        for m in [m for m in MicroCommit.objects.filter(commit=None) if m.editor == editor]:
-            m.commit = self
-            m.save()
-
 class MicroCommit(Model):
     
     object_uid = UUIDField()
-    commit = ForeignKey(Commit, to_field="uid", related_name="microcommits", null=True)
     editor = ForeignKey(Editor, to_field="uid", related_name="microcommits")
     # cr md dl
     ctype = CharField(max_length=2)
