@@ -18,18 +18,14 @@ class CreationTest(TestCase):
         settings.CURRENT_USER = self.john
         Editor(user=self.john).save()
 
-        eng = LanguageKey(code="eng")
-        eng.save()
-        epo = LanguageKey(code="epo")
-        epo.save()
+        eng = LanguageKey.objects.create(code="eng")
+        epo = LanguageKey.objects.create(code="epo")
 
         concept = Concept()
         concept.save()
 
-        dog = Word(full="dog", language=eng)
-        dog.save()
-        hundo = Word(full="hundo", language=epo)
-        hundo.save()
+        dog = Word.objects.create(full="dog", language=eng)
+        hundo = Word.objects.create(full="hundo", language=epo)
 
         WordConceptConnection(concept=concept, word=dog).save()
         WordConceptConnection(concept=concept, word=hundo).save()
@@ -37,6 +33,7 @@ class CreationTest(TestCase):
     def runTest(self):
         self.assertEquals(User.objects.count(), 1)        
         self.assertEquals(LanguageKey.objects.count(), 2)
-        self.assertEquals(MicroCommit.objects.count(), 17)
+        self.assertEquals(CreationCommit.objects.count(), 7)
+        self.assertEquals(ModificationCommit.objects.count(), 10)
 
 
