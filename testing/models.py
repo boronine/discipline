@@ -7,16 +7,15 @@ class LanguageKey(AbstractPervert):
 
 class Word(AbstractPervert):
     full = CharField(max_length=70,db_index=True)
-    language = ForeignKey(LanguageKey, to_field="uid", related_name="words")
+    language = ForeignKey(LanguageKey, related_name="words")
 
 class Concept(AbstractPervert):
     pass
 
 class WordConceptConnection(AbstractPervert):
-    word = ForeignKey(Word, to_field="uid", related_name="concept_connections")
+    word = ForeignKey(Word, related_name="concept_connections")
     concept = ForeignKey(
         Concept, 
-        to_field="uid",
         related_name="word_connections"
     )
 
