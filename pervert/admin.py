@@ -6,7 +6,7 @@ from django import forms
 from django.contrib import messages
 
 class PervertAdmin(admin.ModelAdmin):
-    readonly_fields = ("id",)
+    exclude = ("id",)
     def get_actions(self, request):
         actions = super(PervertAdmin, self).get_actions(request)
         return actions
@@ -21,6 +21,7 @@ class ActionAdmin(admin.ModelAdmin):
         "status"
     )
     readonly_fields = ("editor","when","description","details",)
+    exclude = ("reverted",)
     list_filter = ("editor",)
     actions = ["undo_commit"]
     list_select_related = True
