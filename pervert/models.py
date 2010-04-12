@@ -17,14 +17,26 @@ def post_save_handler(instance):
     
     fields = []
     fks = []
+    mods = []
+
     for field in instance.__class__._meta.fields:
         if field.name in ["id", "auto"]: continue
         fields.append(field.name)
         if field.__class__.__name__ == "ForeignKey":
             fks.append(field.name)
 
-    # The object doesn't exist yet
-    if not CreationCommit.objects.filter(object_id=instance.id):
+    if CreationCommit.objects.filter(object_id=instance.id):
+        mods = []
+        inst = PervertInstance(instance.id)
+        for field in fields:
+            if inst.get(field) != getattr(instance, field):
+                mods.append(field)
+        # Make sure there are actual changes
+        if inst.exists() and not mods: return
+
+    # The object doesn't exist
+    if (not CreationCommit.objects.filter(object_id=instance.id)
+        or not inst.exists()):
         action = Action.objects.create()
         CreationCommit.objects.create(
             object_id = instance.id,
@@ -32,17 +44,8 @@ def post_save_handler(instance):
             content_type = ContentType.objects.get_for_model(instance.__class__)
         )
         # Create a modcommit for everything
-        mods = fields
-
-    else:
-        mods = []
-        inst = PervertInstance(instance.id)
-        for field in fields:
-            if inst.get(field) != getattr(instance, field):
-                mods.append(field)
-        # Make sure there are actual changes
-        if not mods: return
-        action = Action.objects.create()
+        if not mods: mods = fields
+    else: action = Action.objects.create()
 
     # Create MicroCommit for each modification
     for field in mods:
@@ -326,17 +329,27 @@ class PervertInstance:
             self.move_to_present()
         else:
             self.step = step
+
         self.fields = []
         self.foreignkeys = []
         
+        self.creation_times = []
+        self.deletion_times = []
+
         # Find object type and when it was created
-        cc = CreationCommit.objects.get(
-            object_id = self.id,
-        )
-        self.content_type = cc.content_type
-        self.content_type_name = self.content_type.name
-        self.created_on = cc.action.id
-        
+        for ccommit in CreationCommit.objects.filter(object_id=self.id):
+            self.creation_times.append(ccommit.action.id)
+        self.creation_times.sort()
+
+        for dcommit in DeletionCommit.objects.filter(object_id=self.id):
+            self.deletion_times.append(dcommit.action.id)
+        self.deletion_times.sort()
+
+        try:
+            self.content_type = ccommit.content_type
+        except NameError:
+            raise PervertError("You tried to make a PervertInstance out of"
+                               " an object that doesn't exist!")
         # Create lists with fields
         for field in self.content_type.model_class()._meta.fields:
             if field.name in ["id", "auto"]:
@@ -384,7 +397,7 @@ class PervertInstance:
             return PervertInstance(id = modcommit.value).get_object()
         except self.content_type.DoesNotExist:
             raise PervertError("When restoring a ForeignKey, the " \
-                "%s %s was not found." % (self.content_type_name, self.id))
+                "%s %s was not found." % (self.content_type.name, self.id))
 
     def get_pervert_instance(self, key):
         """
@@ -398,26 +411,32 @@ class PervertInstance:
         return self.content_type.model_class().objects.get(id = self.id)
 
     def exists(self):
-        # If it wasn't even created yet
-        if not self.created_on or self.created_on > self.step:
-            return False
-        # There is a delete commit before the given step
-        try:
-            delcommit = DeletionCommit.objects.get(
-                object_id = self.id,
-                action__id__lte = self.step
-            )
-            return False
-        except DeletionCommit.DoesNotExist:
-            return True
+
+        created_on = None
+        deleted_on = None
+
+        for c in reversed(self.creation_times):
+            if c <= self.step:
+                created_on = c
+                break
+
+        if not created_on: return False
+
+        for d in reversed(self.deletion_times):
+            if d <= self.step:
+                deleted_on = d
+                break
+
+        if deleted_on > created_on: return False
+
+        return True
     
     def recreate(self):
         """ 
         If the object was deleted, recreate it as it was at this instance.
         """
 
-        new = self.content_type.model_class()()
-        
+        new = self.content_type.model_class()(id = self.id)
         self.current_action.reverted = self.restore(new)
         self.current_action.save()
 
@@ -458,8 +477,10 @@ class PervertInstance:
             return None
 
     def type_link(self):
-        """ Provides a link with the object type as text. If the object doesn't
-        exist, the link is crossed out"""
+        """ 
+        Provides a link with the object type as text. If the object doesn't
+        exist, the link is crossed out.
+        """
 
         url = self.url()
         if url:
@@ -483,8 +504,5 @@ class PervertInstance:
             return unicode(self.get(field))
         else:
             return self.get_pervert_instance(field).name_link()
-
-
-
 
 
