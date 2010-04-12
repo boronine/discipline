@@ -3,6 +3,7 @@ from django.contrib import admin
 from pervert.models import *
 from pervert.middleware import threadlocals
 from django import forms
+from django.contrib import messages
 
 class PervertAdmin(admin.ModelAdmin):
     readonly_fields = ("id",)
@@ -12,113 +13,51 @@ class PervertAdmin(admin.ModelAdmin):
 
 class ActionAdmin(admin.ModelAdmin):
     
-    list_display = ("commit_time","editor","description","details",)
+    list_display = (
+        "id",
+        "commit_time",
+        "editor",
+        "description",
+        "status"
+    )
     readonly_fields = ("editor","when","description","details",)
     list_filter = ("editor",)
     actions = ["undo_commit"]
+    list_select_related = True
+    list_per_page = 50
     
     def commit_time(self, obj):
         return obj.when.strftime('%d %b %Y %H:%M')
 
     def undo_commit(self, request, queryset):
         
-        allgood = True
+        actions = list(queryset.order_by("id"))
         errors = []
-        commitids = []
 
-        mcommits_dl = {}
-        mcommits_md = []
-        mcommits_cr = []
+        for action in actions:
+            inst = action.instance()
 
-        newcommit = Commit(
-            editor = threadlocals.get_current_user(),
-        )     
-        
-        # temporarily allow only one commit
-        if queryset.count() > 1:
-            errors.append("Currently you can only undo one commit at a time")
-            allgood = False
+            if action.action_type == "dl":
+                # The only problem we can have by undeleting this action
+                # is that some of its foreignkeys could be poining to
+                # objects that have since been deleted.
+                allgood = True
+                for field in inst.foreignkeys:
+                    fk = inst.get_pervert_instance(field)
+                    if not fk.exists():
+                        allgood = False
+                        errors.append(
+                            "Cannot undo action %d: when %s was deleted, "
+                            "it was linked to to a %s that has since "
+                            "been deleted"
+                            % (action.id,
+                               inst.content_type.name,
+                               fk.content_type.name))
 
-        for commit in queryset:
-            
-            # Keep track of all UUID for an explanation
-            commitids.append(commit.id)
-
-            # Separate all microcommits into groups by type
-            for mc in commit.microcommits.all():
-                if mc.ctype == "dl":
-                    # Deleting microcommits will be stored in this dict
-                    # there is a reason for this
-                    mcommits_dl[mc.object_id] = mc
-                elif mc.ctype == "md":
-                    mcommits_md.append(mc)
-                else:
-                    mcommits_cr.append(mc)
-
-        def handle_dl(mcommit):
-            
-            allgood = True
-
-            # So this is a deletion microcommit. The only problem we can
-            # encounter by undoing it is if it had ForeignKeys pointing 
-            # to objects that have since been deleted.
-            inst = mcommit.instance()
-            
-            overrides = {}
-
-            for key in inst.foreignkeys:
-
-                fk = inst.get_pervert_instance(key)
-                fk.move_to_present()
-
-                if not fk.exists():
-                    # Oh no, a related object doesn't exist anymore. Perhaps
-                    # we were planning to restore it anyways?
-                    print "step1"
-                    if fk.id in mcommits_dl.keys():
-                        # Indeed, we are planning to restore it. Let's check
-                        # if it was already restored:
-                        if fk.id in restored_objects.keys():
-                            print "step2"
-                            overrides[key] = restored_objects[fk.id]
-                        else:
-                            overrides[key] = handle_dl(mcommits_dl[fk.id])
-                            print "step3"
-                        # This ForeignKey is now okay, continue
-                        continue
-
-                    allgood = False
-                    errors.append("You cannot undelete %s %s, because " \
-                                  "it used to link to %s %s, which was deleted." % 
-                                  (inst.object_type_name, inst.id, 
-                                   fk.object_type_name, fk.id))
-
-            if allgood:
-                print overrides
-                newid = inst.recreate(newcommit, overrides)
-                restored_objects[inst.id] = newid
-                return newid
-
-        restored_objects = {}
-        for mcommit in mcommits_dl.values():
-            if mcommit.object_id not in restored_objects.keys():
-                handle_dl(mcommit)
-
-
-        
-        # Everything is fine, save the commit and all microcommits
-        if allgood:
-            
-            # List all commits that have been undone
-            newcommit.explanation = "Undid commits: "
-            for id in commitids:
-                newcommit.explanation += id + " "
-                
-            newcommit.save()
-        
-        # At least one error, print the errors
-        else:             
-            self.message_user(request, " ".join(errors))
+                if allgood:
+                    inst.recreate()
+        if errors:
+            messages.error(request, "<br/>".join(errors))
     
     # You cannot delete commits
     def get_actions(self, request):

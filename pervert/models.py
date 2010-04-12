@@ -8,15 +8,12 @@ from django.contrib.auth.models import User, UserManager
 from django.db.models.signals import post_save, post_delete
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
+from django.core import urlresolvers
 import settings
 
 from pervert.middleware import threadlocals
 
-def post_save_handler(sender, **kwargs):
-    
-    if not issubclass(sender, AbstractPervert): return
-
-    instance = kwargs["instance"]
+def post_save_handler(instance):
     
     fields = []
     fks = []
@@ -40,7 +37,6 @@ def post_save_handler(sender, **kwargs):
     else:
         mods = []
         inst = PervertInstance(instance.id)
-        inst.move_to_present()
         for field in fields:
             if inst.get(field) != getattr(instance, field):
                 mods.append(field)
@@ -60,8 +56,11 @@ def post_save_handler(sender, **kwargs):
             key = field,
             value = value
         )
+
+    return action
     
 def post_delete_handler(sender, **kwargs):
+    
     if not issubclass(sender, AbstractPervert): return
 
     instance = kwargs["instance"]
@@ -72,7 +71,6 @@ def post_delete_handler(sender, **kwargs):
         action = action,
     ).save()
 
-post_save.connect(post_save_handler)
 post_delete.connect(post_delete_handler)
 
 
@@ -96,24 +94,52 @@ def get_uuid():
 
 class AbstractPervert(Model):
     
-    id = CharField(max_length=32, default=get_uuid)
-    # Django doesn't like UUID, this is a temparary hack
+    id = CharField(
+        max_length = 32, 
+        default = get_uuid,
+        db_index = True,
+        help_text = "The UUID is used for relationships between objects.",
+        verbose_name = "unique ID"
+    )
+    # Django doesn't like UUIDs, this is a temparary hack
+    # Problems arise when saving inlines.
     auto = AutoField(primary_key=True)
 
     class Meta:
         abstract = True
+    
+    # I use signals for deletion because when deletion cascades to
+    # related objects, Django doesn't call each object's delete method
+    def save(self, *args, **kwargs):
+        out = super(AbstractPervert, self).save(*args, **kwargs)
+        post_save_handler(self)
+        return out
+
+    def save_and_return_action(self):
+        super(AbstractPervert, self).save()
+        return post_save_handler(self)
+
 
 
 class Action(Model):
 
     editor = ForeignKey(
         Editor, 
-        related_name = "commits"
+        related_name = "commits",
+        db_index = True
     )
 
     when = DateTimeField(
         auto_now = True,
-        verbose_name = "commit time"
+        verbose_name = "commit time",
+        db_index = True
+    )
+
+    reverted = OneToOneField(
+        "Action",
+        related_name = "reverts",
+        db_index = True,
+        null = True
     )
 
     class Meta:
@@ -123,53 +149,104 @@ class Action(Model):
     def __unicode__(self):
         return "%s: %s" % (unicode(self.editor), unicode(self.when))
     
+    def instance(self):
+        return PervertInstance(
+            self.object_id,
+            self.id
+        )
+
     def description(self):
-
-        if self.deletion_commits.count():
-            c = self.deletion_commits.all()[0]
-            self.inst = PervertInstance(c.object_id)
-            self.atype = "dl"
-            return "Deleted %s" % self.inst.content_type.name
-            
-        text = ""
-        try:
-            c = self.creation_commits.all()[0]
-            self.atype = "cr"
-            text += "Created "
-        except IndexError:
-            c = self.modification_commits.all()[0]
-            self.atype = "md"
-            text += "Modified "
-
-        self.inst = PervertInstance(c.object_id)
-        self.inst.move_to_present()
         
-        text += self.inst.type_link()
-        
-        return text
+        self._gather_info()
+
+        inst = PervertInstance(self._object_id)
+
+        if self._action_type == "dl":
+            return "Deleted %s" % inst.content_type.name
+        if self._action_type == "cr":
+            return "Created %s" % inst.type_link()
+        else:
+            return "Modified %s" % inst.type_link()
 
     description.allow_tags = True
+    
+    def _gather_info(self):
+        if not self._object_id:
+            if self.creation_commits.count():
+                self._object_id = self.creation_commits.all()[0].object_id
+                self._action_type = "cr"
+            elif self.deletion_commits.count():
+                self._object_id = self.deletion_commits.all()[0].object_id
+                self._action_type = "dl"
+            elif self.modification_commits.count():
+                self._object_id = self.modification_commits.all()[0].object_id
+                self._action_type = "md"
+            else:
+                # Django probes every object for all properties, so it, in fact,
+                # is possible for an action to have no microcommits linking to
+                # it.
+                pass
+
+    _object_id = None
+    _action_type = None
+    
+    def _get_object_id(self):
+        self._gather_info()
+        return self._object_id
+    
+    object_id = property(_get_object_id) 
+
+    def _get_action_type(self):
+        self._gather_info()
+        return self._action_type
+
+    action_type = property(_get_action_type)
+
+    def status(self):
+        if self.reverted:
+            return '(reverted in <a href="%s">#%s</a>)<br/>' % (
+                self.reverted.get_absolute_url(),
+                self.reverted.id
+            )
+        # Turns out that is related field in null, Django
+        # doesn't even make it a property of the object
+        if hasattr(self, "reverts"):
+            return '(reverts <a href="%s">#%s</a>)<br/>' % (
+                self.reverts.get_absolute_url(),
+                self.reverts.id
+            )
+        return ""
+    
+    status.allow_tags = True
+
+    def get_absolute_url(self):
+        return urlresolvers.reverse(
+            "admin:pervert_action_change",
+            args = (self.id,)
+        ) 
 
     def details(self):
+        self._gather_info()
         text = ""
-        self.description()
-        self.inst.move(self.id)
+        inst = self.instance()
 
-        if self.atype == "dl":
-            fields = self.inst.fields + self.inst.foreignkeys
+        # If deleted or created, show every field, otherwise only
+        # the modified
+        if self._action_type in ["dl","cr"]:
+            fields = inst.fields + inst.foreignkeys
         else: fields = [i.key for i in self.modification_commits.all()]
             
         for field in fields:
             text += "<strong>%s</strong>: " % field
-            if self.atype == "md":
-                self.inst.move(self.id - 1)
-                try:
-                    text += self.inst.field_repr(field) + " --> "
-                except:
-                    text += "nigger --> "
-                self.inst.move(self.id)
-            text += self.inst.field_repr(field) + "<br/>"
-        #print ": " + text
+
+            # If modified, show what it was like one step earlier
+            if self._action_type == "md":
+                inst.move(self.id - 1)
+                text += "%s &#8594; " % inst.field_repr(field)
+                inst.move(self.id)
+
+            text += inst.field_repr(field) + "<br/>"
+
         return text   
 
     details.allow_tags = True
@@ -179,16 +256,21 @@ class Action(Model):
         self.editor = editor
         super(Action, self).save(**kwargs)
 
-    def _type(self):
-        return self.description()[0]
-
-    action_type = property(_type)
-
 class CreationCommit(Model):
 
-    content_type = ForeignKey(ContentType)
-    object_id = CharField(max_length=32)
-    action = ForeignKey(Action, related_name="creation_commits")
+    content_type = ForeignKey(
+        ContentType,
+        db_index = True
+    )
+    object_id = CharField(
+        max_length = 32,
+        db_index = True
+    )
+    action = ForeignKey(
+        Action, 
+        related_name = "creation_commits",
+        db_index = True
+    )
 
     def __unicode__(self):
         return "%s %s" % (self.content_type.name, self.object_id,)
@@ -198,17 +280,36 @@ class CreationCommit(Model):
         ordering = ['-id']
 
 class DeletionCommit(Model):
-    object_id = CharField(max_length=32)
-    action = ForeignKey(Action, related_name="deletion_commits")
+
+    object_id = CharField(
+        max_length = 32,
+        db_index = True
+    )
+    action = ForeignKey(
+        Action, 
+        related_name = "deletion_commits",
+        db_index = True
+    )
 
     class Meta:
         # Most of the time you will need most recent
         ordering = ['-id']
 
 class ModificationCommit(Model):
-    object_id = CharField(max_length=32)
-    action = ForeignKey(Action, related_name="modification_commits")
-    key = CharField(max_length=30,null=True)
+
+    object_id = CharField(
+        max_length = 32,
+        db_index = True
+    )
+    action = ForeignKey(
+        Action, 
+        related_name = "modification_commits",
+        db_index = True
+    )
+    key = CharField(
+        max_length = 30,
+        null = True
+    )
     value = TextField(null=True)
  
     class Meta:
@@ -219,23 +320,22 @@ class PervertInstance:
     """
     Use this to find the state of objects at different moments in time
     """
-    def __init__(self, id, step=1):
+    def __init__(self, id, step=None):
         self.id = id
-        self.step = step
+        if not step:
+            self.move_to_present()
+        else:
+            self.step = step
         self.fields = []
         self.foreignkeys = []
         
         # Find object type and when it was created
-        try:
-            cc = CreationCommit.objects.get(
-                object_id = self.id,
-            )
-            self.content_type = cc.content_type
-            self.content_type_name = self.content_type.name
-            self.created_on = cc.action.id
-        except CreationCommit.DoesNotExist:
-            self.created_on = None
-            return
+        cc = CreationCommit.objects.get(
+            object_id = self.id,
+        )
+        self.content_type = cc.content_type
+        self.content_type_name = self.content_type.name
+        self.created_on = cc.action.id
         
         # Create lists with fields
         for field in self.content_type.model_class()._meta.fields:
@@ -248,15 +348,16 @@ class PervertInstance:
     
     def move(self, step):
         """
-        Move the instance to a different step.
+        Move the instance to a different step. Returns the instance.
         """
         self.step = step
+        return self
         
     def move_to_present(self):
         if Action.objects.count():
-            self.move(Action.objects.all()[0].id)
+            return self.move(Action.objects.all()[0].id)
         else:
-            self.move(1)
+            return self.move(0)
     
     def get_modcommit(self, key):
         """
@@ -286,6 +387,10 @@ class PervertInstance:
                 "%s %s was not found." % (self.content_type_name, self.id))
 
     def get_pervert_instance(self, key):
+        """
+        Returns the pervert instance of the object that is/was related
+        to this one by the given foreignkey
+        """
         modcommit = self.get_modcommit(key)
         return PervertInstance(id = modcommit.value)
 
@@ -306,34 +411,37 @@ class PervertInstance:
         except DeletionCommit.DoesNotExist:
             return True
     
-    def recreate(self, action, overrides = {}):
-        """ If the object was deleted, recrete it as it was at this instance, 
-        adding the microcommits to the given commit, overriding some fields as
-        given by the optional 2nd dictionary argument."""
-        new = self.content_type()
+    def recreate(self):
+        """ 
+        If the object was deleted, recreate it as it was at this instance.
+        """
+
+        new = self.content_type.model_class()()
         
-        CreationCommit.objects.create(
-            object_id = new.id,
-            action = action,
-            value = cPickle.dumps(self.content_type)
-        )
-        self.restore(action, new, overrides)
+        self.current_action.reverted = self.restore(new)
+        self.current_action.save()
+
+        return new
         
-        return new.id
-        
-        
-    def restore(self, action, obj=None, overrides = {}):
-        """ Restore all of the object attributes to the attributes of this
-        instance, adding the microcommits to the given commit, overriding some
-        fields as given by the optional 2nd dictionary argument."""
+    _current_action = None
+
+    def _get_current_action(self):
+        if not self._current_action:
+            self._current_action = Action.objects.get(id = self.step)
+        return self._current_action
+
+    current_action = property(_get_current_action)
+
+    def restore(self, obj=None):
+        """ 
+        Restore all of the object attributes to the attributes. Returns the
+        resulting Action object.
+        """
         if not obj:
-            obj = self.content_type.objects.get(id=self.id)
+            obj = self.content_type.model_class().objects.get(id=self.id)
         for field in self.fields + self.foreignkeys:
-            if field in overrides.keys():
-                obj.__setattr__(field, PervertInstance(overrides[field]).get_object())
-                continue
             obj.__setattr__(field, self.get(field))
-        obj.hard_save()
+        return obj.save_and_return_action()
         
     
     def __unicode__(self):
@@ -341,9 +449,10 @@ class PervertInstance:
             
     def url(self):
         if self.exists():
-            return "/admin/%s/%s/%i" % (self.content_type.app_label,
-                                        self.content_type.model,
-                                        self.get_object().auto)
+            return urlresolvers.reverse(
+                "admin:%s_%s_change" % (self.content_type.app_label,
+                                        self.content_type.model),
+                args = (self.get_object().auto,))
             
         else:
             return None
