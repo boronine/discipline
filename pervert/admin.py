@@ -5,6 +5,18 @@ from pervert.middleware import threadlocals
 from django import forms
 from django.contrib import messages
 
+class MInline(admin.TabularInline):
+    model = ModificationCommit
+    extra = 0
+
+class CInline(admin.TabularInline):
+    model = CreationCommit
+    extra = 0
+
+class DInline(admin.TabularInline):
+    model = DeletionCommit
+    extra = 0
+
 class PervertAdmin(admin.ModelAdmin):
     exclude = ("id",)
     def get_actions(self, request):
@@ -20,6 +32,8 @@ class ActionAdmin(admin.ModelAdmin):
         "description",
         "status"
     )
+    # Debug
+    #inlines = (CInline, MInline, DInline,)
     readonly_fields = ("editor","when","description","details",)
     exclude = ("reverted",)
     list_filter = ("editor",)
@@ -32,7 +46,7 @@ class ActionAdmin(admin.ModelAdmin):
 
     def undo_commit(self, request, queryset):
         
-        actions = list(queryset.order_by("id"))
+        actions = list(queryset.order_by("-id"))
         errors = []
 
         for action in actions:
@@ -57,8 +71,8 @@ class ActionAdmin(admin.ModelAdmin):
 
                 if allgood:
                     inst.recreate()
-        if errors:
-            messages.error(request, "<br/>".join(errors))
+        for error in errors:
+            messages.error(request, error)
     
     # You cannot delete commits
     def get_actions(self, request):
