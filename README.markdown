@@ -12,13 +12,24 @@ is made for a much narrower niche (in fact, I cannot off the top of my head
 think of a project that might need Pervert. If you think yours does, it probably
 doesn't).
 
-Pervert is pre-alpha. TODO:
----------------------------
+Features so far
+---------------
 
-1. Implement undo function for object creation and modification.
-2. Implement support for ManyToMany relationships
-3. Use the powerful Django-admin features to their fullest to display lots of 
-useful information in the admin interface. 
-4. Much, much more.
+1. Records all creations, deletions and modifications (from django-admin or not).
+1. Displays them as "actions" in a detailed list.
+1. Has the ability to undo any action (checks for numerous possible problems before 
+proceeding)
+1. Has API to look at any object at any point in time.
+
+To do:
+------
+1. Implement support for ManyToMany relationships.
+1. Make possible to view each object's history.
+1. Tie in with [South][2], make them play nicely together, changing schemas shouldn't
+cause any problems with Pervert whatsoever. (this will be the main "killer feature")
+1. Clean up and document API.
+1. Much more.
 
 [1]: http://code.google.com/p/django-reversion/ 
+[2]: http://south.aeracode.org/
+

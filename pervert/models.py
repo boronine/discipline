@@ -14,7 +14,7 @@ import settings
 from pervert.middleware import threadlocals
 
 def post_save_handler(instance):
-    
+
     fields = []
     fks = []
     mods = []
@@ -73,6 +73,8 @@ def post_delete_handler(sender, **kwargs):
         object_uid = instance.uid,
         action = action,
     ).save()
+
+    return action
 
 post_delete.connect(post_delete_handler)
 
@@ -150,12 +152,6 @@ class Action(Model):
     def __unicode__(self):
         return "%s: %s" % (unicode(self.editor), unicode(self.when))
     
-    def instance(self):
-        return PervertInstance(
-            self.object_uid,
-            self.id
-        )
-
     def description(self):
 
         self._gather_info()
@@ -188,9 +184,24 @@ class Action(Model):
                 # it.
                 pass
 
+    # These are all lazy to cut down on databsse queries
     _object_uid = None
     _action_type = None
-    
+    _pervert_instance = None
+    _is_revertible = None
+    _undo_errors = None
+
+    def _get_pervert_instance(self):
+
+        if not self._pervert_instance:
+            self._pervert_instance = PervertInstance(
+                self.object_uid,
+                self.id
+            )
+        return self._pervert_instance
+
+    pervert_instance = property(_get_pervert_instance)
+
     def _get_object_uid(self):
         self._gather_info()
         return self._object_uid
@@ -203,20 +214,117 @@ class Action(Model):
 
     action_type = property(_get_action_type)
 
-    def status(self):
+    def _get_is_revertible(self):
+
+        if self._is_revertible != None: return self._is_revertible
+        
+        # If it was already reverted
         if self.reverted:
-            return '(reverted in <a href="%s">#%s</a>)<br/>' % (
-                self.reverted.get_absolute_url(),
-                self.reverted.id
-            )
+            self._is_revertible = False
+            return
+
+        errors = []
+        inst = self.pervert_instance
+
+        if self._action_type in ["dl", "md"]:
+            # If undoing deletion, make sure it actually doesn't exist
+            if self._action_type == "dl" and inst.exists_now():
+                errors.append(
+                    "Cannot undo action %d: the %s you are trying to"
+                    " recreate already exists"
+                    % (self.id,
+                       inst.content_type.name,))
+            # The only problem we can have by reversing this action
+            # is that some of its foreignkeys could be pointing to
+            # objects that have since been deleted.
+            for field in inst.foreignkeys:
+                fk = inst.get_pervert_instance(field)
+                if not fk.exists():
+                    errors.append(
+                        "Cannot undo action %d: the %s used to link to"
+                        " a %s that has since been deleted"
+                        % (self.id,
+                           inst.content_type.name,
+                           fk.content_type.name,))
+
+        else: # self._action_type == "cr"
+            # Make sure it doesn't actually exist
+            if not self.pervert_instance.exists_now():
+                errors.append(
+                    "Cannot undo action %d: the %s you are trying"
+                    " to delete doesn't currently exist"
+                    % (self.id, inst.content_type.name,))
+            # The only problem we can have by undoing this action is
+            # that it could have foreignkeys pointed to it, so deleting
+            # it will cause deletion of other objects
+            else:
+                links = [rel.get_accessor_name() 
+                         for rel in inst.get_object()._meta.get_all_related_objects()]
+                for link in links:
+                    objects = getattr(inst.get_object(), link).all()
+                    for rel in objects:
+                        errors.append(
+                            "Cannot undo action %d: you are trying to"
+                            " delete a %s that has a %s pointing to it"
+                            % (self.id, 
+                               inst.content_type.name,
+                               ContentType.objects.get_for_model(rel.__class__),))
+
+        self._undo_errors = errors
+        self._is_revertible = (len(errors) == 0)
+        return self._is_revertible
+
+    is_revertible = property(_get_is_revertible)
+
+    def _get_undo_errors(self):
+        if self._undo_errors == None: self._get_is_revertible()
+        return self._undo_errors
+
+    undo_errors = property(_get_undo_errors)
+
+    def undo(self):
+        inst = self.pervert_instance
+        if not self.is_revertible:
+            raise PervertError("You tried to undo a non-revertible action! "
+                               "Check action.is_revertible and action.undo_errors"
+                               " before trying to undo.")
+
+        if self.action_type == "dl":
+            obj = inst.recreate()
+            self.reverted = obj.save_and_return_action()
+            self.save()
+        elif self.action_type == "md":
+            # Restore as it was *before* the modification
+            inst.move(self.id - 1)
+            obj = inst.restore()
+            inst.move(self.id)
+            self.reverted = obj.save_and_return_action()
+            self.save()
+        else:
+            inst.get_object().delete()
+            # This is safe from race conditions but still a pretty inelegant
+            # solution. I can't figure out a different way to find the last action
+            # because delete handler *has* to be in a signal
+            self.reverted = DeletionCommit.objects.filter(
+                object_uid = self.object_uid
+            ).order_by("-id")[0].action
+            self.save()
+
+    def status(self):
+        text = ""
         # Turns out that is related field in null, Django
         # doesn't even make it a property of the object
         if hasattr(self, "reverts"):
-            return '(reverts <a href="%s">#%s</a>)<br/>' % (
+            text += '(reverts <a href="%s">#%s</a>)<br/>' % (
                 self.reverts.get_absolute_url(),
                 self.reverts.id
             )
-        return ""
+        if self.reverted:
+            text += '(reverted in <a href="%s">#%s</a>)<br/>' % (
+                self.reverted.get_absolute_url(),
+                self.reverted.id
+            )
+        return text
     
     status.allow_tags = True
 
@@ -229,7 +337,7 @@ class Action(Model):
     def details(self):
         self._gather_info()
         text = ""
-        inst = self.instance()
+        inst = self.pervert_instance
 
         # If deleted or created, show every field, otherwise only
         # the modified
@@ -429,14 +537,22 @@ class PervertInstance:
 
         return True
     
+    def exists_now(self):
+
+        t = self.step
+        self.move_to_present()
+        e = self.exists()
+        self.move(t)
+        return e
+
     def recreate(self):
         """ 
-        If the object was deleted, recreate it as it was at this instance.
+        If the object was deleted, recreate it as it was at this point in time.
+        Returns the instance.
         """
 
         new = self.content_type.model_class()(uid = self.uid)
-        self.current_action.reverted = self.restore(new)
-        self.current_action.save()
+        self.restore(new)
 
         return new
         
@@ -452,14 +568,16 @@ class PervertInstance:
     def restore(self, obj=None):
         """ 
         Restore all of the object attributes to the attributes. Returns the
-        resulting Action object.
+        instance.
         """
         if not obj:
             obj = self.content_type.model_class().objects.get(uid=self.uid)
         for field in self.fields + self.foreignkeys:
             obj.__setattr__(field, self.get(field))
-        return obj.save_and_return_action()
+            print ":", self.get(field)
+
         
+        return obj
     
     def __unicode__(self):
         return "%s (%s)" % (unicode(self.content_type), self.uid,)
