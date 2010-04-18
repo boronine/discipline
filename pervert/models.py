@@ -155,30 +155,30 @@ class Action(Model):
     
     def description(self):
 
-        self._gather_info()
+        self.__gather_info()
 
         inst = self.timemachine_instance.presently
 
-        if self._action_type == "dl":
+        if self.__action_type == "dl":
             return "Deleted %s" % inst.content_type.name
-        if self._action_type == "cr":
+        if self.__action_type == "cr":
             return "Created %s" % inst.type_link()
         else:
             return "Modified %s" % inst.type_link()
 
     description.allow_tags = True
     
-    def _gather_info(self):
-        if not self._object_uid:
+    def __gather_info(self):
+        if not self.__object_uid:
             if self.creation_commits.count():
-                self._object_uid = self.creation_commits.all()[0].object_uid
-                self._action_type = "cr"
+                self.__object_uid = self.creation_commits.all()[0].object_uid
+                self.__action_type = "cr"
             elif self.deletion_commits.count():
-                self._object_uid = self.deletion_commits.all()[0].object_uid
-                self._action_type = "dl"
+                self.__object_uid = self.deletion_commits.all()[0].object_uid
+                self.__action_type = "dl"
             elif self.modification_commits.count():
-                self._object_uid = self.modification_commits.all()[0].object_uid
-                self._action_type = "md"
+                self.__object_uid = self.modification_commits.all()[0].object_uid
+                self.__action_type = "md"
             else:
                 # Django probes every object for all properties, so it, in fact,
                 # is possible for an action to have no microcommits linking to
@@ -186,50 +186,50 @@ class Action(Model):
                 pass
 
     # These are all lazy to cut down on databsse queries
-    _object_uid = None
-    _action_type = None
-    _timemachine_instance = None
-    _is_revertible = None
-    _undo_errors = None
+    __object_uid = None
+    __action_type = None
+    __timemachine_instance = None
+    __is_revertible = None
+    __undo_errors = None
 
-    def _get_timemachine_instance(self):
+    def __get_timemachine_instance(self):
 
-        if not self._timemachine_instance:
-            self._timemachine_instance = TimeMachine(
+        if not self.__timemachine_instance:
+            self.__timemachine_instance = TimeMachine(
                 self.object_uid,
                 self.id
             )
-        return self._timemachine_instance
+        return self.__timemachine_instance
 
-    timemachine_instance = property(_get_timemachine_instance)
+    timemachine_instance = property(__get_timemachine_instance)
 
-    def _get_object_uid(self):
-        self._gather_info()
-        return self._object_uid
+    def __get__object_uid(self):
+        self.__gather_info()
+        return self.__object_uid
     
-    object_uid = property(_get_object_uid) 
+    object_uid = property(__get__object_uid) 
 
-    def _get_action_type(self):
-        self._gather_info()
-        return self._action_type
+    def __get__action_type(self):
+        self.__gather_info()
+        return self.__action_type
 
-    action_type = property(_get_action_type)
+    action_type = property(__get__action_type)
 
-    def _get_is_revertible(self):
+    def __get_is_revertible(self):
 
-        if self._is_revertible != None: return self._is_revertible
+        if self.__is_revertible != None: return self.__is_revertible
         
         # If it was already reverted
         if self.reverted:
-            self._is_revertible = False
+            self.__is_revertible = False
             return
 
         errors = []
         inst = self.timemachine_instance
 
-        if self._action_type in ["dl", "md"]:
+        if self.__action_type in ["dl", "md"]:
             # If undoing deletion, make sure it actually doesn't exist
-            if self._action_type == "dl" and inst.presently.exists:
+            if self.__action_type == "dl" and inst.presently.exists:
                 errors.append(
                     "Cannot undo action %d: the %s you are trying to"
                     " recreate already exists"
@@ -248,7 +248,7 @@ class Action(Model):
                            inst.content_type.name,
                            fk.content_type.name,))
 
-        else: # self._action_type == "cr"
+        else: # self.__action_type == "cr"
             # Make sure it doesn't actually exist
             if not self.timemachine_instance.presently.exists:
                 errors.append(
@@ -271,17 +271,17 @@ class Action(Model):
                                inst.content_type.name,
                                ContentType.objects.get_for_model(rel.__class__),))
 
-        self._undo_errors = errors
-        self._is_revertible = (len(errors) == 0)
-        return self._is_revertible
+        self.__undo_errors = errors
+        self.__is_revertible = (len(errors) == 0)
+        return self.__is_revertible
 
-    is_revertible = property(_get_is_revertible)
+    is_revertible = property(__get_is_revertible)
 
-    def _get_undo_errors(self):
-        if self._undo_errors == None: self._get_is_revertible()
-        return self._undo_errors
+    def __get__undo_errors(self):
+        if self.__undo_errors == None: self._get__is_revertible()
+        return self.__undo_errors
 
-    undo_errors = property(_get_undo_errors)
+    undo_errors = property(__get__undo_errors)
 
     def undo(self):
         inst = self.timemachine_instance
@@ -334,13 +334,13 @@ class Action(Model):
         ) 
 
     def details(self):
-        self._gather_info()
+        self.__gather_info()
         text = ""
         inst = self.timemachine_instance
 
         # If deleted or created, show every field, otherwise only
         # the modified
-        if self._action_type in ["dl","cr"]:
+        if self.__action_type in ["dl","cr"]:
             fields = inst.fields + inst.foreignkeys
         else: fields = [i.key for i in self.modification_commits.all()]
 
@@ -348,7 +348,7 @@ class Action(Model):
             text += "<strong>%s</strong>: " % field
 
             # If modified, show what it was like one step earlier
-            if self._action_type == "md":
+            if self.__action_type == "md":
                 text += "%s &#8594; " % inst.at(self.id - 1).field_repr(field)
 
             text += inst.field_repr(field) + "<br/>"
@@ -430,18 +430,18 @@ class TimeMachine:
 
         self.uid = uid
 
-        if not info: info = self._get_information()
+        if not info: info = self.__get_information()
 
         self.info = info
 
         for key in info.keys():
             setattr(self, key, info[key])
 
-        if not step: step = self._present()
+        if not step: step = self.__present()
 
         self.step = step 
 
-    def _get_information(self):
+    def __get_information(self):
 
         info = {}
 
@@ -490,12 +490,12 @@ class TimeMachine:
             self.info
         )
         
-    def _presently(self):
-        return self.at(self._present())
+    def __presently(self):
+        return self.at(self.__present())
     
-    presently = property(_presently)
+    presently = property(__presently)
 
-    def _present(self):
+    def __present(self):
         if Action.objects.count():
             return Action.objects.all()[0].id
         else: return 0
@@ -538,7 +538,7 @@ class TimeMachine:
     def get_object(self):
         return self.content_type.model_class().objects.get(uid = self.uid)
 
-    def _exists(self):
+    def __exists(self):
 
         created_on = None
         deleted_on = None
@@ -559,7 +559,7 @@ class TimeMachine:
 
         return True
     
-    exists = property(_exists)
+    exists = property(__exists)
 
     def recreate(self):
         """ 
@@ -572,14 +572,14 @@ class TimeMachine:
 
         return new
         
-    _current_action = None
+    __current_action = None
 
-    def _get_current_action(self):
+    def __get_current_action(self):
         if not self._current_action:
-            self._current_action = Action.objects.get(id = self.step)
-        return self._current_action
+            self.__current_action = Action.objects.get(id = self.step)
+        return self.__current_action
 
-    current_action = property(_get_current_action)
+    current_action = property(__get_current_action)
 
     def restore(self, obj=None):
         """ 
