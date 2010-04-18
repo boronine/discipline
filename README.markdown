@@ -118,12 +118,12 @@ whose `id` specifies the `TimeMachine`'s current location. So, for example:
     >>> tm = TimeMachine(action.object_uid, action_id)
     >>> tm.get("revolution")
     9
-    >>> tm.move(action_id - 1).get("revolution")
+    >>> tm.at(action_id - 1).get("revolution")
     8
 
 When the second argument isn't supplied, `TimeMachine` automatically moves to present.
 
-`machine.move(time)`, `machine.presently`
+`machine.at(time)`, `machine.presently`
 
 Both of these return a new `TimeMachine` instance.
 

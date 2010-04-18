@@ -487,7 +487,7 @@ class TimeMachine:
         return TimeMachine(
             self.uid,
             step,
-            self.info
+            copy.deepcopy(self.info)
         )
         
     def __presently(self):
