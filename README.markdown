@@ -69,7 +69,7 @@ A `OneToOneField` linking the reverted action with the one it reverts.
 
 Creation, Modification and Deletion microcommit objects respectfully.
 
- `action.timemachine_instance`
+ `action.timemachine`
 
 An instance of the `TimeMachine` object for the object on which this action was performed.
 The time is set automatically to the time of this action.
@@ -115,10 +115,10 @@ whose `id` specifies the `TimeMachine`'s current location. So, for example:
     u'revolution'
     >>> action.modification_commits.all()[0].value
     9
-    >>> tm = TimeMachine(action.object_uid, action_id)
+    >>> tm = TimeMachine(action.object_uid, action.id)
     >>> tm.get("revolution")
     9
-    >>> tm.at(action_id - 1).get("revolution")
+    >>> tm.at(action.id - 1).get("revolution")
     8
 
 When the second argument isn't supplied, `TimeMachine` automatically moves to present.

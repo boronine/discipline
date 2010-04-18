@@ -157,7 +157,7 @@ class Action(Model):
 
         self.__gather_info()
 
-        inst = self.timemachine_instance.presently
+        inst = self.timemachine.presently
 
         if self.__action_type == "dl":
             return "Deleted %s" % inst.content_type.name
@@ -188,20 +188,20 @@ class Action(Model):
     # These are all lazy to cut down on databsse queries
     __object_uid = None
     __action_type = None
-    __timemachine_instance = None
+    __timemachine = None
     __is_revertible = None
     __undo_errors = None
 
-    def __get_timemachine_instance(self):
+    def __get_timemachine(self):
 
-        if not self.__timemachine_instance:
-            self.__timemachine_instance = TimeMachine(
+        if not self.__timemachine:
+            self.__timemachine = TimeMachine(
                 self.object_uid,
                 self.id
             )
-        return self.__timemachine_instance
+        return self.__timemachine
 
-    timemachine_instance = property(__get_timemachine_instance)
+    timemachine = property(__get_timemachine)
 
     def __get__object_uid(self):
         self.__gather_info()
@@ -225,7 +225,7 @@ class Action(Model):
             return
 
         errors = []
-        inst = self.timemachine_instance
+        inst = self.timemachine
 
         if self.__action_type in ["dl", "md"]:
             # If undoing deletion, make sure it actually doesn't exist
@@ -250,7 +250,7 @@ class Action(Model):
 
         else: # self.__action_type == "cr"
             # Make sure it doesn't actually exist
-            if not self.timemachine_instance.presently.exists:
+            if not self.timemachine.presently.exists:
                 errors.append(
                     "Cannot undo action %d: the %s you are trying"
                     " to delete doesn't currently exist"
@@ -284,7 +284,7 @@ class Action(Model):
     undo_errors = property(__get__undo_errors)
 
     def undo(self):
-        inst = self.timemachine_instance
+        inst = self.timemachine
         if not self.is_revertible:
             raise PervertError("You tried to undo a non-revertible action! "
                                "Check action.is_revertible and action.undo_errors"
@@ -336,7 +336,7 @@ class Action(Model):
     def details(self):
         self.__gather_info()
         text = ""
-        inst = self.timemachine_instance
+        inst = self.timemachine
 
         # If deleted or created, show every field, otherwise only
         # the modified
