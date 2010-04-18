@@ -33,12 +33,12 @@ proceeding)
 Overview
 --------
 
-To register a model with Pervert it has to inherit the `pervert.models.AbstractPervert`
-class. Note the `AbstractPervert` forces it to have `uid` (`CharField`) as the primary key.
+To register a model with Pervert, it has to inherit the `pervert.models.AbstractPervert`
+class. Note that the `AbstractPervert` forces it to have `uid` (`CharField`) as the primary key.
 
 Every action performed in the administrator interface gets tracked by Pervert. Most of
 the records are contained in the `CreationCommit`, `ModificationCommit` and 
-`DeletionCommit` objects. Each of those have minimalist models: `CreationCommit` only
+`DeletionCommit` objects. Each of those has minimalist models: `CreationCommit` only
 records the UUID and content type, `DeletionCommit` only the UUID and `ModificationCommit`
 records the UUID and a key-value pair. All of the above are, in turn, connected to 
 `Action` objects, each `Action` instance represents one action done by one editor.
@@ -53,11 +53,11 @@ API
 
 Each time an object is created, modified or deleted an `Action` is created.
 
- `action.editor`
+`action.editor`
 
 The editor, who commited the action. This is a Django field.
 
- `action.when`
+`action.when`
 
 The `datetime`, when the action was commited. This is a Django field.
 
