@@ -27,7 +27,7 @@ def post_save_handler(instance):
 
     if CreationCommit.objects.filter(object_uid=instance.uid):
         mods = []
-        inst = PervertInstance(instance.uid)
+        inst = TimeMachine(instance.uid)
         for field in fields:
             if inst.get(field) != getattr(instance, field):
                 mods.append(field)
@@ -156,7 +156,7 @@ class Action(Model):
 
         self._gather_info()
 
-        inst = PervertInstance(self._object_uid)
+        inst = TimeMachine(self._object_uid)
 
         if self._action_type == "dl":
             return "Deleted %s" % inst.content_type.name
@@ -187,20 +187,20 @@ class Action(Model):
     # These are all lazy to cut down on databsse queries
     _object_uid = None
     _action_type = None
-    _pervert_instance = None
+    _timemachine_instance = None
     _is_revertible = None
     _undo_errors = None
 
-    def _get_pervert_instance(self):
+    def _get_timemachine_instance(self):
 
-        if not self._pervert_instance:
-            self._pervert_instance = PervertInstance(
+        if not self._timemachine_instance:
+            self._timemachine_instance = TimeMachine(
                 self.object_uid,
                 self.id
             )
-        return self._pervert_instance
+        return self._timemachine_instance
 
-    pervert_instance = property(_get_pervert_instance)
+    timemachine_instance = property(_get_timemachine_instance)
 
     def _get_object_uid(self):
         self._gather_info()
@@ -224,7 +224,7 @@ class Action(Model):
             return
 
         errors = []
-        inst = self.pervert_instance
+        inst = self.timemachine_instance
 
         if self._action_type in ["dl", "md"]:
             # If undoing deletion, make sure it actually doesn't exist
@@ -238,7 +238,7 @@ class Action(Model):
             # is that some of its foreignkeys could be pointing to
             # objects that have since been deleted.
             for field in inst.foreignkeys:
-                fk = inst.get_pervert_instance(field)
+                fk = inst.get_timemachine_instance(field)
                 if not fk.exists():
                     errors.append(
                         "Cannot undo action %d: the %s used to link to"
@@ -249,7 +249,7 @@ class Action(Model):
 
         else: # self._action_type == "cr"
             # Make sure it doesn't actually exist
-            if not self.pervert_instance.exists_now():
+            if not self.timemachine_instance.exists_now():
                 errors.append(
                     "Cannot undo action %d: the %s you are trying"
                     " to delete doesn't currently exist"
@@ -283,7 +283,7 @@ class Action(Model):
     undo_errors = property(_get_undo_errors)
 
     def undo(self):
-        inst = self.pervert_instance
+        inst = self.timemachine_instance
         if not self.is_revertible:
             raise PervertError("You tried to undo a non-revertible action! "
                                "Check action.is_revertible and action.undo_errors"
@@ -337,7 +337,7 @@ class Action(Model):
     def details(self):
         self._gather_info()
         text = ""
-        inst = self.pervert_instance
+        inst = self.timemachine_instance
 
         # If deleted or created, show every field, otherwise only
         # the modified
@@ -425,7 +425,7 @@ class ModificationCommit(Model):
         # Most of the time you will need most recent
         ordering = ['-id']
 
-class PervertInstance:
+class TimeMachine:
     """
     Use this to find the state of objects at different moments in time
     """
@@ -454,7 +454,7 @@ class PervertInstance:
         try:
             self.content_type = ccommit.content_type
         except NameError:
-            raise PervertError("You tried to make a PervertInstance out of"
+            raise PervertError("You tried to make a TimeMachine out of"
                                " an object that doesn't exist!")
         # Create lists with fields
         for field in self.content_type.model_class()._meta.fields:
@@ -500,18 +500,18 @@ class PervertInstance:
             return cPickle.loads(str(modcommit.value))
         # If it is, then return the object instance
         try:
-            return PervertInstance(uid = modcommit.value).get_object()
+            return TimeMachine(uid = modcommit.value).get_object()
         except self.content_type.DoesNotExist:
             raise PervertError("When restoring a ForeignKey, the " \
                 "%s %s was not found." % (self.content_type.name, self.uid))
 
-    def get_pervert_instance(self, key):
+    def get_timemachine_instance(self, key):
         """
         Returns the pervert instance of the object that is/was related
         to this one by the given foreignkey
         """
         modcommit = self.get_modcommit(key)
-        return PervertInstance(uid = modcommit.value)
+        return TimeMachine(uid = modcommit.value)
 
     def get_object(self):
         return self.content_type.model_class().objects.get(uid = self.uid)
@@ -619,6 +619,6 @@ class PervertInstance:
         if field in self.fields:
             return unicode(self.get(field))
         else:
-            return self.get_pervert_instance(field).name_link()
+            return self.get_timemachine_instance(field).name_link()
 
 
