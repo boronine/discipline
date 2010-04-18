@@ -118,16 +118,14 @@ whose `id` specifies the `TimeMachine`'s current location. So, for example:
     >>> tm = TimeMachine(action.object_uid, action_id)
     >>> tm.get("revolution")
     9
-    >>> tm.move(action_id - 1)
-    >>> tm.get("revolution")
+    >>> tm.move(action_id - 1).get("revolution")
     8
 
 When the second argument isn't supplied, `TimeMachine` automatically moves to present.
 
-`machine.move(time)`, `machine.move_to_present()`
+`machine.move(time)`, `machine.presently`
 
-Moves the `TimeMachine` to `time`. `move_to_present()` moves to the latest `Action` and, therefore,
-the present state.
+Both of these return a new `TimeMachine` instance.
 
 `machine.get(fieldname)`
 
@@ -144,14 +142,10 @@ called `fieldname`.
 Returns the object that the `TimeMachine` is looking at. If it doesn't exist, Django will raise
 an error.
 
-`machine.exists()`
+`machine.exists`
 
-Returns whether the object exists at this point in time. Note that when an object is recreated
+A boolean for whether the object exists at this point in time. Note that when an object is recreated
 by undoing a deletion action, it gets its old UUID.
-
-`machine.exists_now()`
-
-Same as `machine.exists()`, but checks the present instead of the `TimeMachine`'s time.
 
 `machine.current_action`
 

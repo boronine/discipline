@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import cPickle
 import uuid
+import copy
 
 from django.db.models import *
 from django.db.models.query_utils import CollectedObjects
@@ -32,11 +33,11 @@ def post_save_handler(instance):
             if inst.get(field) != getattr(instance, field):
                 mods.append(field)
         # Make sure there are actual changes
-        if inst.exists() and not mods: return
+        if inst.exists and not mods: return
 
     # The object doesn't exist
     if (not CreationCommit.objects.filter(object_uid=instance.uid)
-        or not inst.exists()):
+        or not inst.exists):
         action = Action.objects.create()
         CreationCommit.objects.create(
             object_uid = instance.uid,
@@ -156,7 +157,7 @@ class Action(Model):
 
         self._gather_info()
 
-        inst = TimeMachine(self._object_uid)
+        inst = self.timemachine_instance.presently
 
         if self._action_type == "dl":
             return "Deleted %s" % inst.content_type.name
@@ -228,7 +229,7 @@ class Action(Model):
 
         if self._action_type in ["dl", "md"]:
             # If undoing deletion, make sure it actually doesn't exist
-            if self._action_type == "dl" and inst.exists_now():
+            if self._action_type == "dl" and inst.presently.exists:
                 errors.append(
                     "Cannot undo action %d: the %s you are trying to"
                     " recreate already exists"
@@ -239,7 +240,7 @@ class Action(Model):
             # objects that have since been deleted.
             for field in inst.foreignkeys:
                 fk = inst.get_timemachine_instance(field)
-                if not fk.exists():
+                if not fk.exists:
                     errors.append(
                         "Cannot undo action %d: the %s used to link to"
                         " a %s that has since been deleted"
@@ -249,7 +250,7 @@ class Action(Model):
 
         else: # self._action_type == "cr"
             # Make sure it doesn't actually exist
-            if not self.timemachine_instance.exists_now():
+            if not self.timemachine_instance.presently.exists:
                 errors.append(
                     "Cannot undo action %d: the %s you are trying"
                     " to delete doesn't currently exist"
@@ -295,9 +296,7 @@ class Action(Model):
             self.save()
         elif self.action_type == "md":
             # Restore as it was *before* the modification
-            inst.move(self.id - 1)
-            obj = inst.restore()
-            inst.move(self.id)
+            obj = inst.at(self.id - 1).restore()
             self.reverted = obj.save_and_return_action()
             self.save()
         else:
@@ -350,9 +349,7 @@ class Action(Model):
 
             # If modified, show what it was like one step earlier
             if self._action_type == "md":
-                inst.move(self.id - 1)
-                text += "%s &#8594; " % inst.field_repr(field)
-                inst.move(self.id)
+                text += "%s &#8594; " % inst.at(self.id - 1).field_repr(field)
 
             text += inst.field_repr(field) + "<br/>"
 
@@ -429,55 +426,80 @@ class TimeMachine:
     """
     Use this to find the state of objects at different moments in time
     """
-    def __init__(self, uid, step=None):
-        self.uid = uid
-        if not step:
-            self.move_to_present()
-        else:
-            self.step = step
+    def __init__(self, uid, step=None, info=None):
 
-        self.fields = []
-        self.foreignkeys = []
+        self.uid = uid
+
+        if not info: info = self._get_information()
+
+        self.info = info
+
+        for key in info.keys():
+            setattr(self, key, info[key])
+
+        if not step: step = self._present()
+
+        self.step = step 
+
+    def _get_information(self):
+
+        info = {}
+
+        info["fields"] = []
+        info["foreignkeys"] = []
         
-        self.creation_times = []
-        self.deletion_times = []
+        info["creation_times"] = []
+        info["deletion_times"] = []
+
+        info["content_type"] = None
 
         # Find object type and when it was created
+
         for ccommit in CreationCommit.objects.filter(object_uid=self.uid):
-            self.creation_times.append(ccommit.action.id)
-        self.creation_times.sort()
+            info["creation_times"].append(ccommit.action.id)
+        info["creation_times"].sort()
 
         for dcommit in DeletionCommit.objects.filter(object_uid=self.uid):
-            self.deletion_times.append(dcommit.action.id)
-        self.deletion_times.sort()
+            info["deletion_times"].append(dcommit.action.id)
+        info["deletion_times"].sort()
 
         try:
-            self.content_type = ccommit.content_type
+            info["content_type"] = ccommit.content_type
         except NameError:
             raise PervertError("You tried to make a TimeMachine out of"
                                " an object that doesn't exist!")
+
         # Create lists with fields
-        for field in self.content_type.model_class()._meta.fields:
+        for field in info["content_type"].model_class()._meta.fields:
             if field.name == "uid":
                 continue
             if field.__class__.__name__ == "ForeignKey":
-                self.foreignkeys.append(field.name)
+                info["foreignkeys"].append(field.name)
             else:
-                self.fields.append(field.name)
+                info["fields"].append(field.name)
+
+        return info
     
-    def move(self, step):
+    def at(self, step):
         """
-        Move the instance to a different step. Returns the instance.
+        Returns an instance of the same object at a different step.
         """
-        self.step = step
-        return self
+        return TimeMachine(
+            self.uid,
+            step,
+            self.info
+        )
         
-    def move_to_present(self):
-        if Action.objects.count():
-            return self.move(Action.objects.all()[0].id)
-        else:
-            return self.move(0)
+    def _presently(self):
+        return self.at(self._present())
     
+    presently = property(_presently)
+
+    def _present(self):
+        if Action.objects.count():
+            return Action.objects.all()[0].id
+        else: return 0
+
     def get_modcommit(self, key):
         """
         Return the last modcommit of the given field
@@ -516,7 +538,7 @@ class TimeMachine:
     def get_object(self):
         return self.content_type.model_class().objects.get(uid = self.uid)
 
-    def exists(self):
+    def _exists(self):
 
         created_on = None
         deleted_on = None
@@ -537,13 +559,7 @@ class TimeMachine:
 
         return True
     
-    def exists_now(self):
-
-        t = self.step
-        self.move_to_present()
-        e = self.exists()
-        self.move(t)
-        return e
+    exists = property(_exists)
 
     def recreate(self):
         """ 
@@ -576,14 +592,13 @@ class TimeMachine:
             obj.__setattr__(field, self.get(field))
             print ":", self.get(field)
 
-        
         return obj
     
     def __unicode__(self):
         return "%s (%s)" % (unicode(self.content_type), self.uid,)
             
     def url(self):
-        if self.exists():
+        if self.exists:
             return urlresolvers.reverse(
                 "admin:%s_%s_change" % (self.content_type.app_label,
                                         self.content_type.model),
@@ -605,11 +620,8 @@ class TimeMachine:
             return "<s>%s</s>" % self.content_type.name
     
     def name_link(self):
-        t = self.uid
-        self.move_to_present()
-        if self.exists():
+        if self.presently.exists:
             url = self.url()
-            self.move(t)
             return "<a href=\"%s\">%s</a>" % (url,
                                               unicode(self.get_object()),)
         else:
