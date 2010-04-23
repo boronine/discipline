@@ -81,6 +81,7 @@ class PervertTest(TestCase):
     def test_creation_action_undo(self):
         action = CreationCommit.objects.get(object_uid=self.dog.uid).action
         self.assertEquals(action.is_revertible, False)
+        # Delete the WCC that keeps the dog from being deleted
         self.dog.concept_connections.all()[0].delete()
         self.assertEquals(action.is_revertible, True)
         action.undo()
@@ -94,6 +95,7 @@ class PervertTest(TestCase):
         cc.save()
         action = Action.objects.all()[0]
         self.assertEquals(action.is_revertible, True)
+        # The WCC used to link to hundo, deleting hundo will disable undo
         self.hundo.delete()
         self.assertEquals(action.is_revertible, False)
         self.dog.full = "dawg"
@@ -110,6 +112,7 @@ class PervertTest(TestCase):
         cc.delete()
         action = Action.objects.all()[0]
         self.assertEquals(action.is_revertible, True)
+        # The WCC used to link to hundo, deleting hundo will disable undo
         self.hundo.delete()
         self.assertEquals(action.is_revertible, False)
         Action.objects.all()[0].undo()
@@ -123,6 +126,11 @@ class PervertTest(TestCase):
         self.assertEquals(tm.exists, True)
         self.assertEquals(tm.at(created_on).exists, True)
         self.assertEquals(tm.at(created_on-1).exists, False)
+        self.hundo.delete()
+        action = Action.objects.all()[0]
+        self.assertEquals(tm.presently.exists, False)
+        action.undo()
+        self.assertEquals(tm.presently.exists, True)
 
     def test_timemachine_fields(self):
         tm = TimeMachine(self.hundo.uid)
