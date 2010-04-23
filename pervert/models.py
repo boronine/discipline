@@ -189,8 +189,6 @@ class Action(Model):
     __object_uid = None
     __action_type = None
     __timemachine = None
-    __is_revertible = None
-    __undo_errors = None
 
     def __get_timemachine(self):
 
@@ -217,12 +215,9 @@ class Action(Model):
 
     def __get_is_revertible(self):
 
-        if self.__is_revertible != None: return self.__is_revertible
-        
         # If it was already reverted
         if self.reverted:
-            self.__is_revertible = False
-            return
+            return False
 
         errors = []
         inst = self.timemachine
@@ -238,8 +233,9 @@ class Action(Model):
             # The only problem we can have by reversing this action
             # is that some of its foreignkeys could be pointing to
             # objects that have since been deleted.
+            check_here = inst.at(self.id-1)
             for field in inst.foreignkeys:
-                fk = inst.get_timemachine_instance(field)
+                fk = check_here.get_timemachine_instance(field)
                 if not fk.exists:
                     errors.append(
                         "Cannot undo action %d: the %s used to link to"
@@ -272,8 +268,7 @@ class Action(Model):
                                ContentType.objects.get_for_model(rel.__class__),))
 
         self.__undo_errors = errors
-        self.__is_revertible = (len(errors) == 0)
-        return self.__is_revertible
+        return (len(errors) == 0)
 
     is_revertible = property(__get_is_revertible)
 
@@ -430,21 +425,21 @@ class TimeMachine:
 
         self.uid = uid
 
-        if not info: info = self.__get_information()
-
-        self.info = info
-
-        for key in info.keys():
-            setattr(self, key, info[key])
-
         if not step: step = self.__present()
 
         self.step = step 
 
-    def __get_information(self):
+        if not info:
+            info = self.__update_information()
+        else:
+            for key in info.keys():
+                setattr(self, key, info[key])
+
+    def __update_information(self):
 
         info = {}
 
+        info["actions_count"] = Action.objects.count()
         info["fields"] = []
         info["foreignkeys"] = []
         
@@ -478,7 +473,10 @@ class TimeMachine:
             else:
                 info["fields"].append(field.name)
 
-        return info
+        self.info = info
+
+        for key in info.keys():
+            setattr(self, key, info[key])
     
     def at(self, step):
         """
@@ -539,6 +537,10 @@ class TimeMachine:
         return self.content_type.model_class().objects.get(uid = self.uid)
 
     def __exists(self):
+        
+        # Make sure no actions have been created since!
+        if Action.objects.count() != self.actions_count:
+            self.__update_information()
 
         created_on = None
         deleted_on = None
@@ -590,7 +592,6 @@ class TimeMachine:
             obj = self.content_type.model_class().objects.get(uid=self.uid)
         for field in self.fields + self.foreignkeys:
             obj.__setattr__(field, self.get(field))
-            print ":", self.get(field)
 
         return obj
     
