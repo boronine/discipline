@@ -99,8 +99,24 @@ class Editor(Model):
 def get_uuid():
     return uuid.uuid4().hex
 
+class UUIDField(CharField):
+
+    def __init__(self, *args, **kwargs):
+        kwargs["max_length"] = 32
+        kwargs["db_index"] = True
+        kwargs["primary_key"] = True
+        kwargs["default"] = get_uuid
+        super(UUIDField, self).__init__(*args, **kwargs)
+
+    def contribute_to_class(self, cls, name):
+        assert not cls._meta.has_auto_field
+        super(UUIDField, self).contribute_to_class(cls, name)
+        cls._meta.has_auto_field = True
+        cls._meta.auto_field = self
+
 class AbstractPervert(Model):
     
+    """
     uid = CharField(
         max_length = 32, 
         default = get_uuid,
@@ -109,6 +125,9 @@ class AbstractPervert(Model):
         verbose_name = "unique ID",
         primary_key = True
     )
+    """
+
+    uid = UUIDField()
 
     class Meta:
         abstract = True
