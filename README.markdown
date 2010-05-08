@@ -1,6 +1,6 @@
-Pervert is a work in progress to create a Django model version control system for
+Pervert is a work in progress Django model version control system for
 a future free online dictionary. Since it could become useful for someone else's
-project, I've separated it to become a standalone app.
+project, I've separated it from the dictionary into a standalone app.
 
 Pervert records changes in their rawest form, which could be useful for a project 
 where many editors are working on data that is most natural to store in a 
@@ -18,7 +18,6 @@ To do:
 1. Make possible to view each object's history.
 1. Tie in with [South][2], make them play nicely together, changing schemas shouldn't
 cause any problems with Pervert whatsoever. (this will be the main "killer feature")
-1. Clean up and document API.
 1. Much more.
 
 Features so far

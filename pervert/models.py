@@ -116,17 +116,6 @@ class UUIDField(CharField):
 
 class AbstractPervert(Model):
     
-    """
-    uid = CharField(
-        max_length = 32, 
-        default = get_uuid,
-        db_index = True,
-        help_text = "The UUID is used for relationships between objects.",
-        verbose_name = "unique ID",
-        primary_key = True
-    )
-    """
-
     uid = UUIDField()
 
     class Meta:
