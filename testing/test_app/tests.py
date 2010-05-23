@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.contrib.auth.models import User, UserManager
 from django.test.client import Client
 from pervert.models import *
-from testing.models import *
+from test_app.models import *
 import settings
 from django.contrib.contenttypes.models import ContentType
 

@@ -50,6 +50,12 @@ MEDIA_URL = ''
 # trailing slash.
 # Examples: "http://foo.com/media/", "/media/".
 ADMIN_MEDIA_PREFIX = '/media/'
+import os.path
+import sys
+
+# Make the pervert app accessible
+PROJECT_ROOT = os.path.normpath(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, '..'))
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '5iu#e(ef79u#m=_&^jpll71=y#y)=2(k%o7&h&1rn)*x8yj%%i'
@@ -86,8 +92,6 @@ INSTALLED_APPS = (
     'django.contrib.messages',
     'django.contrib.admin',
     'pervert',
-    'testing',
+    'test_app',
 )
-
-#AUTH_PROFILE_MODULE = 'words.Editor'
 
