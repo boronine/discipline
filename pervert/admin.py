@@ -4,12 +4,18 @@ from pervert.models import *
 from pervert.middleware import threadlocals
 from django import forms
 from django.contrib import messages
+from django.views.generic.simple import redirect_to
+from django.core import urlresolvers
 
 class PervertAdmin(admin.ModelAdmin):
     readonly_fields = ("uid",)
     def get_actions(self, request):
         actions = super(PervertAdmin, self).get_actions(request)
         return actions
+    def history_view(self, request, object_id, extra_context=None):
+        url = urlresolvers.reverse('admin:pervert_action_changelist')
+        # Redirect to Action list, but filtered for the specific action
+        return redirect_to(request, url + "?q=" + object_id)
     
 class ActionAdmin(admin.ModelAdmin):
     
@@ -27,9 +33,10 @@ class ActionAdmin(admin.ModelAdmin):
         "details",
         "status",
     )
-    exclude = ("reverted",)
+    exclude = ("reverted","action_type","object_uid")
     list_filter = ("editor",)
     actions = ("undo_actions",)
+    search_fields = ("=object_uid",)
     list_select_related = True
     list_per_page = 50
     

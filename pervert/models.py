@@ -38,7 +38,10 @@ def post_save_handler(instance):
     # The object doesn't exist
     if (not CreationCommit.objects.filter(object_uid=instance.uid)
         or not inst.exists):
-        action = Action.objects.create()
+        action = Action.objects.create(
+            object_uid = instance.uid,
+            action_type = "cr"
+        )
         CreationCommit.objects.create(
             object_uid = instance.uid,
             action = action,
@@ -46,7 +49,11 @@ def post_save_handler(instance):
         )
         # Create a modcommit for everything
         if not mods: mods = fields
-    else: action = Action.objects.create()
+    else: 
+        action = Action.objects.create(
+            object_uid = instance.uid,
+            action_type = "md"
+        )
 
     # Create MicroCommit for each modification
     for field in mods:
@@ -68,7 +75,11 @@ def post_delete_handler(sender, **kwargs):
     if not issubclass(sender, AbstractPervert): return
 
     instance = kwargs["instance"]
-    action = Action.objects.create()
+
+    action = Action.objects.create(
+        object_uid = instance.uid,
+        action_type = "dl"
+    )
 
     DeletionCommit(
         object_uid = instance.uid,
@@ -154,6 +165,16 @@ class Action(Model):
         null = True
     )
 
+    object_uid = CharField(
+        max_length = 32,
+        db_index = True
+    )
+
+    action_type = CharField(
+        max_length = 2,
+        db_index = True
+    )
+
     class Meta:
         # Most of the time you will need most recent
         ordering = ['-id']
@@ -163,63 +184,34 @@ class Action(Model):
     
     def description(self):
 
-        self.__gather_info()
-
         inst = self.timemachine.presently
 
-        if self.__action_type == "dl":
+        if self.action_type == "dl":
             return "Deleted %s" % inst.content_type.name
-        if self.__action_type == "cr":
+        if self.action_type == "cr":
             return "Created %s" % inst.type_link()
         else:
             return "Modified %s" % inst.type_link()
 
     description.allow_tags = True
     
-    def __gather_info(self):
-        if not self.__object_uid:
-            if self.creation_commits.count():
-                self.__object_uid = self.creation_commits.all()[0].object_uid
-                self.__action_type = "cr"
-            elif self.deletion_commits.count():
-                self.__object_uid = self.deletion_commits.all()[0].object_uid
-                self.__action_type = "dl"
-            elif self.modification_commits.count():
-                self.__object_uid = self.modification_commits.all()[0].object_uid
-                self.__action_type = "md"
-            else:
-                # Django probes every object for all properties, so it, in fact,
-                # is possible for an action to have no microcommits linking to
-                # it.
-                pass
-
-    # These are all lazy to cut down on databsse queries
-    __object_uid = None
-    __action_type = None
-    __timemachine = None
+    # To save database queries
+    __timemachine = False
 
     def __get_timemachine(self):
-
+        """
+        Return a TimeMachine for the object on which this action was performed
+        and at the time of this action.
+        """
         if not self.__timemachine:
             self.__timemachine = TimeMachine(
                 self.object_uid,
                 self.id
             )
-        return self.__timemachine
+
+        return self.__timemachine.at(self.id)
 
     timemachine = property(__get_timemachine)
-
-    def __get__object_uid(self):
-        self.__gather_info()
-        return self.__object_uid
-    
-    object_uid = property(__get__object_uid) 
-
-    def __get__action_type(self):
-        self.__gather_info()
-        return self.__action_type
-
-    action_type = property(__get__action_type)
 
     def __get_is_revertible(self):
 
@@ -230,9 +222,9 @@ class Action(Model):
         errors = []
         inst = self.timemachine
 
-        if self.__action_type in ["dl", "md"]:
+        if self.action_type in ["dl", "md"]:
             # If undoing deletion, make sure it actually doesn't exist
-            if self.__action_type == "dl" and inst.presently.exists:
+            if self.action_type == "dl" and inst.presently.exists:
                 errors.append(
                     "Cannot undo action %d: the %s you are trying to"
                     " recreate already exists"
@@ -252,7 +244,7 @@ class Action(Model):
                            inst.content_type.name,
                            fk.content_type.name,))
 
-        else: # self.__action_type == "cr"
+        else: # self.action_type == "cr"
             # Make sure it doesn't actually exist
             if not self.timemachine.presently.exists:
                 errors.append(
@@ -337,13 +329,12 @@ class Action(Model):
         ) 
 
     def details(self):
-        self.__gather_info()
         text = ""
         inst = self.timemachine
 
         # If deleted or created, show every field, otherwise only
         # the modified
-        if self.__action_type in ["dl","cr"]:
+        if self.action_type in ["dl","cr"]:
             fields = inst.fields + inst.foreignkeys
         else: fields = [i.key for i in self.modification_commits.all()]
 
@@ -351,7 +342,7 @@ class Action(Model):
             text += "<strong>%s</strong>: " % field
 
             # If modified, show what it was like one step earlier
-            if self.__action_type == "md":
+            if self.action_type == "md":
                 text += "%s &#8594; " % inst.at(self.id - 1).field_repr(field)
 
             text += inst.field_repr(field) + "<br/>"
@@ -440,6 +431,7 @@ class TimeMachine:
         if not info:
             info = self.__update_information()
         else:
+            self.info = info
             for key in info.keys():
                 setattr(self, key, info[key])
 
