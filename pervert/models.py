@@ -26,6 +26,7 @@ def post_save_handler(instance):
         if field.__class__.__name__ == "ForeignKey":
             fks.append(field.name)
 
+    # The object has been created at least once
     if CreationCommit.objects.filter(object_uid=instance.uid):
         mods = []
         inst = TimeMachine(instance.uid)
@@ -55,7 +56,7 @@ def post_save_handler(instance):
             action_type = "md"
         )
 
-    # Create MicroCommit for each modification
+    # Create ModificationCommit for each modification
     for field in mods:
         if field in fks:
             value = getattr(instance,field).uid
@@ -107,16 +108,12 @@ class Editor(Model):
         
     objects = UserManager()
 
-def get_uuid():
-    return uuid.uuid4().hex
-
 class UUIDField(CharField):
 
     def __init__(self, *args, **kwargs):
         kwargs["max_length"] = 32
         kwargs["db_index"] = True
         kwargs["primary_key"] = True
-        kwargs["default"] = get_uuid
         super(UUIDField, self).__init__(*args, **kwargs)
 
     def contribute_to_class(self, cls, name):
@@ -124,6 +121,10 @@ class UUIDField(CharField):
         super(UUIDField, self).contribute_to_class(cls, name)
         cls._meta.has_auto_field = True
         cls._meta.auto_field = self
+
+# Allow South to deal with our custom field
+from south.modelsinspector import add_introspection_rules
+add_introspection_rules([], ["^pervert\.models\.UUIDField"])
 
 class AbstractPervert(Model):
     
@@ -135,6 +136,8 @@ class AbstractPervert(Model):
     # I use signals for deletion because when deletion cascades to
     # related objects, Django doesn't call each object's delete method
     def save(self, *args, **kwargs):
+        if not self.uid:
+            self.uid = uuid.uuid4().hex
         out = super(AbstractPervert, self).save(*args, **kwargs)
         post_save_handler(self)
         return out
@@ -544,7 +547,7 @@ class TimeMachine:
 
         created_on = None
         deleted_on = None
-
+        
         for c in reversed(self.creation_times):
             if c <= self.step:
                 created_on = c
@@ -634,4 +637,26 @@ class TimeMachine:
         else:
             return self.get_timemachine_instance(field).name_link()
 
+class SchemaState(Model):
+    when = DateTimeField(auto_now=True)
+    app = CharField(max_length=50)
+    schema = TextField()
+
+from south.signals import post_migrate
+from south.models import MigrationHistory
+
+def register_schema_change(**kwargs):
+    """
+    Get the new migration and put its schema info into
+    the pervert database.
+    """
+
+    last = MigrationHistory.objects.all()[0].get_migration()
+
+    SchemaState.objects.create(
+        schema = cPickle.dumps(last.migration_class().models),
+        app = kwargs["app"]
+    )
+       
+post_migrate.connect(register_schema_change)
 

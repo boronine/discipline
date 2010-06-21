@@ -91,6 +91,7 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.admin',
+    'south',
     'pervert',
     'test_app',
 )
