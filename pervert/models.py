@@ -125,6 +125,13 @@ class UUIDField(CharField):
         cls._meta.has_auto_field = True
         cls._meta.auto_field = self
 
+# Allow South to deal with our custom field
+try:
+    from south.modelsinspector import add_introspection_rules
+    add_introspection_rules([], ["^pervert\.models\.UUIDField"])
+except ImportError:
+    pass
+
 class AbstractPervert(Model):
     
     uid = UUIDField()
@@ -634,9 +641,31 @@ class TimeMachine:
         else:
             return self.get_timemachine_instance(field).name_link()
 
+import json
+
 class SchemaState(Model):
+
     when = DateTimeField(auto_now=True)
     state = TextField()
-    def __unicode__(self):
-        return state
+
+    def html_state(self):
+        """
+        Display state in HTML format for the admin form
+        """
+        ret = ""
+        statelist = json.loads(self.state)
+        for state in statelist:
+            ret += "<p>%s.models.%s</p>" % (state["app_label"], state["model"],)
+            ret += "<ul>"
+            for field in state["fields"] + ["uid"]:
+                ret += "<li>%s</li>" % field
+            for fk in state["fks"]:
+                ret += "<li>%s (foreign key)</li>" % fk
+            ret += "</ul>"
+        return ret
+
+    html_state.allow_tags = True
+    html_state.short_description = "State"
+
+
 

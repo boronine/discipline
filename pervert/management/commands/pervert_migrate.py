@@ -29,3 +29,16 @@ class Command(BaseCommand):
         ss.save()
         print "SchemaState saved on %s" % ss.when
 
+"""
+from south.signals import post_migrate
+from south.models import MigrationHistory
+post_migrate.connect(Command.handle)
+
+try:
+    from south.signals import post_migrate
+    from south.models import MigrationHistory
+    post_migrate.connect(Command.handle)
+except ImportError:
+    pass
+"""
+

@@ -67,5 +67,23 @@ class ActionAdmin(admin.ModelAdmin):
     def has_delete_permission(self, request, obj=None):
         return False
 
+class SchemaStateAdmin(admin.ModelAdmin):
+
+    list_display = ("when",)
+    exclude = ("state",)
+    readonly_fields = ("when","html_state",)
+
+    def get_actions(self, request):
+        actions = super(SchemaStateAdmin, self).get_actions(request)
+        del actions['delete_selected']
+        return actions
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
 admin.site.register(Action, ActionAdmin)
+admin.site.register(SchemaState, SchemaStateAdmin)
 
