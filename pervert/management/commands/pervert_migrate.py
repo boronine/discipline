@@ -26,14 +26,11 @@ class Command(BaseCommand):
                 else:
                     state["fields"].append(field.name)
             # Sort to make sure there is a unique json representation of each state
-            state["fields"].sort()
-            state["fks"].sort()
             states.append(state)
 
-        jsonstate = json.dumps(states)
         # If the json is identical to the last saved state
         if SchemaState.objects.count() and \
-            SchemaState.objects.order_by("-when")[0].state == jsonstate:
+            json.loads(SchemaState.objects.order_by("-when")[0].state) == states:
             print "The state hasn't changed, nothing to do."
         else:
             # Save new state
