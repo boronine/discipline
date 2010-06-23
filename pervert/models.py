@@ -634,4 +634,9 @@ class TimeMachine:
         else:
             return self.get_timemachine_instance(field).name_link()
 
+class SchemaState(Model):
+    when = DateTimeField(auto_now=True)
+    state = TextField()
+    def __unicode__(self):
+        return state
 
