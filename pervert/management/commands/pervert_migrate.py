@@ -6,35 +6,34 @@ class Command(BaseCommand):
     help = "Registers new schema for Pervert-controlled models"
 
     def handle(self, *args, **options):
-        states = []
+        state = {}
         print "Reading the schema of Pervert-controlled models..."
         state_text = ""
         for cl in AbstractPervert.__subclasses__():
-            state = {
-                "app_label": cl._meta.app_label,
-                "model": cl._meta.object_name,
+            app = cl._meta.app_label
+            model = cl._meta.object_name
+            if app not in state.keys(): state[app] = {}
+            if model not in state[app].keys(): state[app][model] = {
                 "fields": [],
                 "fks": []
             }
-            state_text += "%s.models.%s\n" % (state["app_label"], state["model"],)
+            state_text += "%s.models.%s\n" % (app, model,)
             for field in cl._meta.fields:
                 state_text += " * %s\n" % field.name
                 if field.name == "uid":
                     continue
                 if field.__class__.__name__ == "ForeignKey":
-                    state["fks"].append(field.name)
+                    state[app][model]["fks"].append(field.name)
                 else:
-                    state["fields"].append(field.name)
-            # Sort to make sure there is a unique json representation of each state
-            states.append(state)
+                    state[app][model]["fields"].append(field.name)
 
         # If the json is identical to the last saved state
         if SchemaState.objects.count() and \
-            json.loads(SchemaState.objects.order_by("-when")[0].state) == states:
+            json.loads(SchemaState.objects.order_by("-when")[0].state) == state:
             print "The state hasn't changed, nothing to do."
         else:
             # Save new state
-            ss = SchemaState(state = json.dumps(states))
+            ss = SchemaState(state = json.dumps(state))
             ss.save()
             print state_text + "SchemaState saved on %s" % ss.when
 

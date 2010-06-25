@@ -653,15 +653,16 @@ class SchemaState(Model):
         Display state in HTML format for the admin form
         """
         ret = ""
-        statelist = json.loads(self.state)
-        for state in statelist:
-            ret += "<p>%s.models.%s</p>" % (state["app_label"], state["model"],)
-            ret += "<ul>"
-            for field in state["fields"] + ["uid"]:
-                ret += "<li>%s</li>" % field
-            for fk in state["fks"]:
-                ret += "<li>%s (foreign key)</li>" % fk
-            ret += "</ul>"
+        state = json.loads(self.state)
+        for (app, appstate) in state.items():
+            for (model, modelstate) in appstate.items():
+                ret += "<p>%s.models.%s</p>" % (app, model,)
+                ret += "<ul>"
+                for field in modelstate["fields"] + ["uid"]:
+                    ret += "<li>%s</li>" % field
+                for fk in modelstate["fks"]:
+                    ret += "<li>%s (foreign key)</li>" % fk
+                ret += "</ul>"
         return ret
 
     html_state.allow_tags = True
