@@ -11,6 +11,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ObjectDoesNotExist
 from django.core import urlresolvers
 import settings
+import datetime
 
 from pervert.middleware import threadlocals
 
@@ -117,6 +118,7 @@ class UUIDField(CharField):
         kwargs["db_index"] = True
         kwargs["primary_key"] = True
         kwargs["default"] = get_uuid
+        kwargs["verbose_name"] = "Unique ID"
         super(UUIDField, self).__init__(*args, **kwargs)
 
     def contribute_to_class(self, cls, name):
@@ -153,6 +155,8 @@ class AbstractPervert(Model):
 
 class Action(Model):
 
+    uid = UUIDField()
+
     editor = ForeignKey(
         Editor, 
         related_name = "commits",
@@ -160,7 +164,7 @@ class Action(Model):
     )
 
     when = DateTimeField(
-        auto_now = True,
+        auto_now_add = True,
         verbose_name = "commit time",
         db_index = True
     )
@@ -184,7 +188,7 @@ class Action(Model):
 
     class Meta:
         # Most of the time you will need most recent
-        ordering = ['-id']
+        ordering = ['-when']
 
     def __unicode__(self):
         return "%s: %s" % (unicode(self.editor), unicode(self.when))
@@ -213,10 +217,10 @@ class Action(Model):
         if not self.__timemachine:
             self.__timemachine = TimeMachine(
                 self.object_uid,
-                self.id
+                self.when
             )
 
-        return self.__timemachine.at(self.id)
+        return self.__timemachine.at(self.when)
 
     timemachine = property(__get_timemachine)
 
@@ -235,19 +239,19 @@ class Action(Model):
                 errors.append(
                     "Cannot undo action %d: the %s you are trying to"
                     " recreate already exists"
-                    % (self.id,
+                    % (self.uid,
                        inst.content_type.name,))
             # The only problem we can have by reversing this action
             # is that some of its foreignkeys could be pointing to
             # objects that have since been deleted.
-            check_here = inst.at(self.id-1)
+            check_here = inst.at_previous_action
             for field in inst.foreignkeys:
                 fk = check_here.get_timemachine_instance(field)
                 if not fk.exists:
                     errors.append(
-                        "Cannot undo action %d: the %s used to link to"
+                        "Cannot undo action %s: the %s used to link to"
                         " a %s that has since been deleted"
-                        % (self.id,
+                        % (self.uid,
                            inst.content_type.name,
                            fk.content_type.name,))
 
@@ -255,9 +259,9 @@ class Action(Model):
             # Make sure it doesn't actually exist
             if not self.timemachine.presently.exists:
                 errors.append(
-                    "Cannot undo action %d: the %s you are trying"
+                    "Cannot undo action %s: the %s you are trying"
                     " to delete doesn't currently exist"
-                    % (self.id, inst.content_type.name,))
+                    % (self.uid, inst.content_type.name,))
             # The only problem we can have by undoing this action is
             # that it could have foreignkeys pointed to it, so deleting
             # it will cause deletion of other objects
@@ -268,9 +272,9 @@ class Action(Model):
                     objects = getattr(inst.get_object(), link).all()
                     for rel in objects:
                         errors.append(
-                            "Cannot undo action %d: you are trying to"
+                            "Cannot undo action %s: you are trying to"
                             " delete a %s that has a %s pointing to it"
-                            % (self.id, 
+                            % (self.uid, 
                                inst.content_type.name,
                                ContentType.objects.get_for_model(rel.__class__),))
 
@@ -298,7 +302,7 @@ class Action(Model):
             self.save()
         elif self.action_type == "md":
             # Restore as it was *before* the modification
-            obj = inst.at(self.id - 1).restore()
+            obj = inst.at_previous_action.restore()
             self.reverted = obj.save_and_return_action()
             self.save()
         else:
@@ -308,7 +312,7 @@ class Action(Model):
             # because delete handler *has* to be in a signal
             self.reverted = DeletionCommit.objects.filter(
                 object_uid = self.object_uid
-            ).order_by("-id")[0].action
+            ).order_by("-action__when")[0].action
             self.save()
 
     def status(self):
@@ -316,14 +320,14 @@ class Action(Model):
         # Turns out that is related field in null, Django
         # doesn't even make it a property of the object
         if hasattr(self, "reverts"):
-            text += '(reverts <a href="%s">#%s</a>)<br/>' % (
+            text += '(reverts <a href="%s">%s</a>)<br/>' % (
                 self.reverts.get_absolute_url(),
-                self.reverts.id
+                self.reverts.uid
             )
         if self.reverted:
-            text += '(reverted in <a href="%s">#%s</a>)<br/>' % (
+            text += '(reverted in <a href="%s">%s</a>)<br/>' % (
                 self.reverted.get_absolute_url(),
-                self.reverted.id
+                self.reverted.uid
             )
         return text
     
@@ -332,7 +336,7 @@ class Action(Model):
     def get_absolute_url(self):
         return urlresolvers.reverse(
             "admin:pervert_action_change",
-            args = (self.id,)
+            args = (self.uid,)
         ) 
 
     def details(self):
@@ -341,7 +345,7 @@ class Action(Model):
 
         # If deleted or created, show every field, otherwise only
         # the modified
-        if self.action_type in ["dl","cr"]:
+        if self.action_type in ("dl","cr",):
             fields = inst.fields + inst.foreignkeys
         else: fields = [i.key for i in self.modification_commits.all()]
 
@@ -350,7 +354,7 @@ class Action(Model):
 
             # If modified, show what it was like one step earlier
             if self.action_type == "md":
-                text += "%s &#8594; " % inst.at(self.id - 1).field_repr(field)
+                text += "%s &#8594; " % inst.at_previous_action.field_repr(field)
 
             text += inst.field_repr(field) + "<br/>"
 
@@ -378,13 +382,10 @@ class CreationCommit(Model):
         related_name = "creation_commits",
         db_index = True
     )
+    uid = UUIDField()
 
     def __unicode__(self):
         return "%s %s" % (self.content_type.name, self.object_uid,)
-
-    class Meta:
-        # Most of the time you will need most recent
-        ordering = ['-id']
 
 class DeletionCommit(Model):
 
@@ -397,10 +398,7 @@ class DeletionCommit(Model):
         related_name = "deletion_commits",
         db_index = True
     )
-
-    class Meta:
-        # Most of the time you will need most recent
-        ordering = ['-id']
+    uid = UUIDField()
 
 class ModificationCommit(Model):
 
@@ -418,22 +416,19 @@ class ModificationCommit(Model):
         null = True
     )
     value = TextField(null=True)
+    uid = UUIDField()
  
-    class Meta:
-        # Most of the time you will need most recent
-        ordering = ['-id']
-
 class TimeMachine:
     """
     Use this to find the state of objects at different moments in time
     """
-    def __init__(self, uid, step=None, info=None):
+    def __init__(self, uid, when=None, info=None):
 
         self.uid = uid
 
-        if not step: step = self.__present()
+        if not when: when = datetime.datetime.now()
 
-        self.step = step 
+        self.when = when 
 
         if not info:
             info = self.__update_information()
@@ -458,11 +453,11 @@ class TimeMachine:
         # Find object type and when it was created
 
         for ccommit in CreationCommit.objects.filter(object_uid=self.uid):
-            info["creation_times"].append(ccommit.action.id)
+            info["creation_times"].append(ccommit.action.when)
         info["creation_times"].sort()
 
         for dcommit in DeletionCommit.objects.filter(object_uid=self.uid):
-            info["deletion_times"].append(dcommit.action.id)
+            info["deletion_times"].append(dcommit.action.when)
         info["deletion_times"].sort()
 
         try:
@@ -485,25 +480,32 @@ class TimeMachine:
         for key in info.keys():
             setattr(self, key, info[key])
     
-    def at(self, step):
+    def at(self, when):
         """
-        Returns an instance of the same object at a different step.
+        Returns an instance of the same object at a different time.
         """
         return TimeMachine(
             self.uid,
-            step,
+            when,
             copy.deepcopy(self.info)
         )
         
     def __presently(self):
-        return self.at(self.__present())
+        return self.at(datetime.datetime.now())
     
     presently = property(__presently)
 
-    def __present(self):
-        if Action.objects.count():
-            return Action.objects.all()[0].id
-        else: return 0
+    def __at_previous_action(self):
+        try:
+            prev_action = Action.objects.filter(
+                when__lte = self.when
+            )[1]
+            return self.at(prev_action.when)
+        except IndexError:
+            raise PervertError("You tried to get an a TimeMachine at previous "
+                               "action, but no previous action exists!")
+
+    at_previous_action = property(__at_previous_action)
 
     def get_modcommit(self, key):
         """
@@ -513,11 +515,11 @@ class TimeMachine:
             modcommit = ModificationCommit.objects.filter(
                 object_uid = self.uid,
                 key = key,
-                action__id__lte = self.step
-            )[0]
+                action__when__lte = self.when
+            ).order_by("-action__when")[0]
         except IndexError:
             raise PervertError("No modification microcommit for attribute "\
-            "'%s' of %s at %d" % (key, self.__unicode__(), self.step,))
+            "'%s' of %s at %s" % (key, self.__unicode__(), self.when,))
         return modcommit
 
     def get(self, key):
@@ -552,19 +554,21 @@ class TimeMachine:
         created_on = None
         deleted_on = None
 
+        # Get the *last* time that it was created
         for c in reversed(self.creation_times):
-            if c <= self.step:
+            if c <= self.when:
                 created_on = c
                 break
 
         if not created_on: return False
 
+        # Get the *last* time that it was deleted
         for d in reversed(self.deletion_times):
-            if d <= self.step:
+            if d <= self.when:
                 deleted_on = d
                 break
 
-        if deleted_on > created_on: return False
+        if deleted_on and deleted_on > created_on: return False
 
         return True
     
@@ -585,7 +589,7 @@ class TimeMachine:
 
     def __get_current_action(self):
         if not self._current_action:
-            self.__current_action = Action.objects.get(id = self.step)
+            self.__current_action = Action.objects.get(when_lte = self.when)
         return self.__current_action
 
     current_action = property(__get_current_action)
@@ -645,7 +649,7 @@ import json
 
 class SchemaState(Model):
 
-    when = DateTimeField(auto_now=True)
+    when = DateTimeField(auto_now_add=True)
     state = TextField()
 
     def html_state(self):

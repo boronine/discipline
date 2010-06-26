@@ -1,4 +1,5 @@
 import cPickle
+import datetime
 from django.test import TestCase
 from django.contrib.auth.models import User, UserManager
 from django.test.client import Client
@@ -122,10 +123,11 @@ class PervertTest(TestCase):
 
     def test_timemachine_time(self):
         tm = TimeMachine(self.hundo.uid)
-        created_on = CreationCommit.objects.get(object_uid=self.hundo.uid).action.id
+        created_on = CreationCommit.objects.get(object_uid=self.hundo.uid).action.when
+        second_before = created_on - datetime.timedelta(seconds=1)
         self.assertEquals(tm.exists, True)
         self.assertEquals(tm.at(created_on).exists, True)
-        self.assertEquals(tm.at(created_on-1).exists, False)
+        self.assertEquals(tm.at(second_before).exists, False)
         self.hundo.delete()
         action = Action.objects.all()[0]
         self.assertEquals(tm.presently.exists, False)

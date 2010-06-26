@@ -100,16 +100,11 @@ Returns the action's URL in Django admin.
 #### `pervert.models.TimeMachine`
 
 First argument in constructing a `TimeMachine` is the UUID of the object. Second (optional)
-argument is the point in time that you want the `TimeMachine` to be at. This is the `id` of
-an `Action`. Note that when looking for the state of the object's field using the `TimeMachine`,
-the last `Action` that the `TimeMachine` is going to take into consideration is the one
-whose `id` specifies the `TimeMachine`'s current location. So, for example:
+argument is the datetime object specifying the point in time that you want the `TimeMachine` 
+to be at. Note that if the `TimeMachine` is *exactly* at the time of some action, it will
+take that action into consideration when asked for field values.
 
-    >>> action = Action.objects.get(id=5)
-    >>> action.action_type
-    'md'
-    >>> action.object_uid
-    u'554062218b6c4444876cfe5c723ef369'
+    >>> action = Action.objects.all()[0]
     >>> action.modification_commits.all()[0].key
     u'revolution'
     >>> action.modification_commits.all()[0].value
@@ -117,14 +112,22 @@ whose `id` specifies the `TimeMachine`'s current location. So, for example:
     >>> tm = TimeMachine(action.object_uid, action.id)
     >>> tm.get("revolution")
     9
-    >>> tm.at(action.id - 1).get("revolution")
+    >>> tm.at_previous_action.get("revolution")
     8
 
 When the second argument isn't supplied, `TimeMachine` automatically moves to present.
 
-`machine.at(time)`, `machine.presently`
+`machine.at(time)` 
 
-Both of these return a new `TimeMachine` instance.
+Returns a new `TimeMachine` instance for the same object, but moved to a different point in time.
+
+`machine.presently`
+
+A shortcut for the above that uses `datetime.datetime.now()` for the time field.
+
+`machine.at_previous_action`
+
+A shortcut for `at(time)` that uses the time of the action previous to one right before or right at the `TimeMachine`.
 
 `machine.get(fieldname)`
 

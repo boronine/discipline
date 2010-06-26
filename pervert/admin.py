@@ -20,13 +20,14 @@ class PervertAdmin(admin.ModelAdmin):
 class ActionAdmin(admin.ModelAdmin):
     
     list_display = (
-        "id",
         "commit_time",
         "editor",
         "description",
-        "status"
+        "status",
+        "uid",
     )
     readonly_fields = (
+        "uid",
         "editor",
         "when",
         "description",
@@ -45,7 +46,7 @@ class ActionAdmin(admin.ModelAdmin):
 
     def undo_actions(self, request, queryset):
         
-        actions = list(queryset.order_by("-id"))
+        actions = list(queryset.order_by("-when"))
         errors = []
 
         for action in actions:
