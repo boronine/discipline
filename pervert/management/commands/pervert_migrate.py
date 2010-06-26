@@ -5,9 +5,9 @@ from pervert.models import AbstractPervert, SchemaState, PervertError
 class Command(BaseCommand):
     help = "Registers new schema for Pervert-controlled models"
 
-    def handle(self, *args, **options):
+    def handle(self, quiet=False, *args, **options):
         state = {}
-        print "Reading the schema of Pervert-controlled models..."
+        if not quiet: print "Reading the schema of Pervert-controlled models..."
         state_text = ""
         for cl in AbstractPervert.__subclasses__():
             app = cl._meta.app_label
@@ -30,10 +30,10 @@ class Command(BaseCommand):
         # If the json is identical to the last saved state
         if SchemaState.objects.count() and \
             json.loads(SchemaState.objects.order_by("-when")[0].state) == state:
-            print "The state hasn't changed, nothing to do."
+            if not quiet: print "The state hasn't changed, nothing to do."
         else:
             # Save new state
             ss = SchemaState(state = json.dumps(state))
             ss.save()
-            print state_text + "SchemaState saved on %s" % ss.when
+            if not quiet: print state_text + "SchemaState saved on %s" % ss.when
 

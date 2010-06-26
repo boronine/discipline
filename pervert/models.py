@@ -232,6 +232,16 @@ class Action(Model):
 
         errors = []
         inst = self.timemachine
+        
+        if inst.fields != inst.presently.fields or \
+           inst.foreignkeys != inst.presently.foreignkeys:
+           self.__undo_errors = [
+               "Cannot undo action %s. The database schema"
+               " for %s has changed"
+                % (self.uid,
+                   inst.content_type.name,)]
+           return False
+
 
         if self.action_type in ["dl", "md"]:
             # If undoing deletion, make sure it actually doesn't exist
@@ -247,6 +257,8 @@ class Action(Model):
             check_here = inst.at_previous_action
             for field in inst.foreignkeys:
                 fk = check_here.get_timemachine_instance(field)
+                # If the ForeignKey doesn't have a value
+                if not fk: continue
                 if not fk.exists:
                     errors.append(
                         "Cannot undo action %s: the %s used to link to"
@@ -256,7 +268,7 @@ class Action(Model):
                            fk.content_type.name,))
 
         else: # self.action_type == "cr"
-            # Make sure it doesn't actually exist
+            # Make sure it actually exists
             if not self.timemachine.presently.exists:
                 errors.append(
                     "Cannot undo action %s: the %s you are trying"
@@ -438,8 +450,8 @@ class TimeMachine:
                 setattr(self, key, info[key])
 
         # Find the last SchemaState for this model in this app
-        ss = SchemaState.objects.filter(when__lt = self.when)[0].schema_state()\
-            [self.content_type.app_label][self.content_type.model_class().__name__]
+        ss = SchemaState.objects.filter(when__lt = self.when)[0]\
+                .get_for_content_type(self.content_type)
 
         # Use it to find out which fields the model had at this point in time
         self.fields = ss["fields"]
@@ -508,21 +520,25 @@ class TimeMachine:
 
     def get_modcommit(self, key):
         """
-        Return the last modcommit of the given field
+        Return the last modcommit of the given field. If no
+        modcommit exists (for example after a migration that created
+        new fields) returns None.
         """
         try:
-            modcommit = ModificationCommit.objects.filter(
+            return ModificationCommit.objects.filter(
                 object_uid = self.uid,
                 key = key,
                 action__when__lte = self.when
             ).order_by("-action__when")[0]
         except IndexError:
-            raise PervertError("No modification microcommit for attribute "\
-            "'%s' of %s at %s" % (key, self.__unicode__(), self.when,))
-        return modcommit
+            return None
 
     def get(self, key):
+        """
+        Returns the value of a field at the TimeMachine's current time.
+        """
         modcommit = self.get_modcommit(key)
+        if not modcommit: return None
         # If this isn't a ForeignKey, then just return the value
         if key not in self.foreignkeys:
             return cPickle.loads(str(modcommit.value))
@@ -536,9 +552,10 @@ class TimeMachine:
     def get_timemachine_instance(self, key):
         """
         Returns the pervert instance of the object that is/was related
-        to this one by the given foreignkey
+        to this one by the given foreignkey name.
         """
         modcommit = self.get_modcommit(key)
+        if not modcommit: return None
         return TimeMachine(uid = modcommit.value)
 
     def get_object(self):
@@ -653,6 +670,9 @@ class SchemaState(Model):
 
     def schema_state(self):
         return json.loads(self.state)
+
+    def get_for_content_type(self, ct):
+        return json.loads(self.state)[ct.app_label][ct.model_class().__name__]
 
     class Meta:
         ordering = ["-when"]

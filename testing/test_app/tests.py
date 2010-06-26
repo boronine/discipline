@@ -1,5 +1,6 @@
 import cPickle
 import datetime
+import copy
 from django.test import TestCase
 from django.contrib.auth.models import User, UserManager
 from django.test.client import Client
@@ -13,7 +14,7 @@ class PervertTest(TestCase):
     def setUp(self):
 
         # Create initial migration
-        Command().handle()
+        Command().handle(quiet=True)
 
         self.john = User(
             first_name = "John",
@@ -152,4 +153,29 @@ class PervertTest(TestCase):
         fktm = tm.get_timemachine_instance("language")
         self.assertEquals(fktm.get("code"), "epo")
         self.assertEquals(tm.get_object(), self.hundo)
+
+    def test_timemachine_schemastates(self):
+        tm = TimeMachine(self.hundo.uid)
+        self.assertEquals(tm.fields, ["full"])
+        self.assertEquals(tm.foreignkeys, ["language"])
+
+        ss = SchemaState.objects.order_by("-when")[0]
+        newss = copy.deepcopy(json.loads(ss.state))
+        newss["test_app"]["Word"]["fields"] = ["text"]
+        newss["test_app"]["Word"]["foreignkeys"] = \
+                ["language","type"]
+        SchemaState.objects.create(state = json.dumps(newss))
+        self.hundo.language = self.eng
+        self.hundo.save()
+        self.assertEquals(tm.presently.fields, ["text"])
+        self.assertEquals(tm.presently.foreignkeys, ["language", "type"])
+
+        # The second-last action must not be revertible, since
+        # the schema has changed
+        hundoacts = Action.objects.filter(object_uid = self.hundo.uid).order_by("-when")
+        self.assertEquals(hundoacts[0].is_revertible, True)
+        self.assertEquals(hundoacts[1].is_revertible, False)
+
+
+        
 
