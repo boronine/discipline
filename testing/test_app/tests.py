@@ -7,9 +7,14 @@ from pervert.models import *
 from test_app.models import *
 import settings
 from django.contrib.contenttypes.models import ContentType
+from pervert.management.commands.pervert_migrate import Command
 
 class PervertTest(TestCase):
     def setUp(self):
+
+        # Create initial migration
+        Command().handle()
+
         self.john = User(
             first_name = "John",
             last_name = "Doe",
@@ -124,10 +129,9 @@ class PervertTest(TestCase):
     def test_timemachine_time(self):
         tm = TimeMachine(self.hundo.uid)
         created_on = CreationCommit.objects.get(object_uid=self.hundo.uid).action.when
-        second_before = created_on - datetime.timedelta(seconds=1)
         self.assertEquals(tm.exists, True)
         self.assertEquals(tm.at(created_on).exists, True)
-        self.assertEquals(tm.at(second_before).exists, False)
+        self.assertEquals(tm.at(created_on).at_previous_action.exists, False)
         self.hundo.delete()
         action = Action.objects.all()[0]
         self.assertEquals(tm.presently.exists, False)

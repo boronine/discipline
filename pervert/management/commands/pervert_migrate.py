@@ -15,7 +15,7 @@ class Command(BaseCommand):
             if app not in state.keys(): state[app] = {}
             if model not in state[app].keys(): state[app][model] = {
                 "fields": [],
-                "fks": []
+                "foreignkeys": []
             }
             state_text += "%s.models.%s\n" % (app, model,)
             for field in cl._meta.fields:
@@ -23,7 +23,7 @@ class Command(BaseCommand):
                 if field.name == "uid":
                     continue
                 if field.__class__.__name__ == "ForeignKey":
-                    state[app][model]["fks"].append(field.name)
+                    state[app][model]["foreignkeys"].append(field.name)
                 else:
                     state[app][model]["fields"].append(field.name)
 

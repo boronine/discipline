@@ -437,6 +437,14 @@ class TimeMachine:
             for key in info.keys():
                 setattr(self, key, info[key])
 
+        # Find the last SchemaState for this model in this app
+        ss = SchemaState.objects.filter(when__lt = self.when)[0].schema_state()\
+            [self.content_type.app_label][self.content_type.model_class().__name__]
+
+        # Use it to find out which fields the model had at this point in time
+        self.fields = ss["fields"]
+        self.foreignkeys = ss["foreignkeys"]
+
     def __update_information(self):
 
         info = {}
@@ -465,15 +473,6 @@ class TimeMachine:
         except NameError:
             raise PervertError("You tried to make a TimeMachine out of"
                                " an object that doesn't exist!")
-
-        # Create lists with fields
-        for field in info["content_type"].model_class()._meta.fields:
-            if field.name == "uid":
-                continue
-            if field.__class__.__name__ == "ForeignKey":
-                info["foreignkeys"].append(field.name)
-            else:
-                info["fields"].append(field.name)
 
         self.info = info
 
@@ -651,6 +650,12 @@ class SchemaState(Model):
 
     when = DateTimeField(auto_now_add=True)
     state = TextField()
+
+    def schema_state(self):
+        return json.loads(self.state)
+
+    class Meta:
+        ordering = ["-when"]
 
     def html_state(self):
         """
