@@ -371,12 +371,12 @@ class Action(Model):
         if hasattr(self, "reverts"):
             text += '(reverts <a href="%s">%s</a>)<br/>' % (
                 self.reverts.get_absolute_url(),
-                self.reverts.uid
+                self.reverts.id
             )
         if self.reverted:
             text += '(reverted in <a href="%s">%s</a>)<br/>' % (
                 self.reverted.get_absolute_url(),
-                self.reverted.uid
+                self.reverted.id
             )
         return text
     
@@ -385,7 +385,7 @@ class Action(Model):
     def get_absolute_url(self):
         return urlresolvers.reverse(
             "admin:discipline_action_change",
-            args = (self.uid,)
+            args = (self.id,)
         ) 
 
     def __summary(self):
