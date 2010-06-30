@@ -1,8 +1,7 @@
 *~
 *.pyc
 *.swp
-testing/testing.db
-testing/testing.db.bak
+testing/testing.db*
 testing/testapp/models.py
 testing/testapp/migrations
 migrations
