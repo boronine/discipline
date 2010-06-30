@@ -1,19 +1,18 @@
 # -*- coding: utf-8 -*-
+
 import cPickle
 import uuid
 import copy
-
-from django.db.models import *
-from django.db.models.query_utils import CollectedObjects
-from django.contrib.auth.models import User, UserManager
-from django.db.models.signals import post_save, post_delete
-from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ObjectDoesNotExist
-from django.core import urlresolvers
-import settings
+import json
 import datetime
 
-from middleware import threadlocals
+from django.db.models import *
+from django.contrib.auth.models import User, UserManager
+from django.db.models.signals import post_delete
+from django.contrib.contenttypes.models import ContentType
+from django.core import urlresolvers
+
+from discipline.middleware import threadlocals
 
 def post_save_handler(instance, editor=None):
 
@@ -87,7 +86,8 @@ def disciplined_post_save(instance, editor):
     
 def post_delete_handler(sender, editor=None, force=False, *args, **kwargs):
     
-    if not force and not issubclass(sender, DisciplinedModel): return
+    if not force and not issubclass(sender, DisciplinedModel): 
+        return
 
     instance = kwargs["instance"]
 
@@ -117,9 +117,11 @@ def disciplined_pre_delete(instance, editor):
 post_delete.connect(post_delete_handler)
 
 
-class DisciplineException(Exception): pass
+class DisciplineException(Exception):
+    pass
 
-class DisciplineIntegrityError(Exception): pass
+class DisciplineIntegrityError(Exception):
+    pass
 
 class Editor(Model):
 
@@ -181,14 +183,13 @@ class DisciplinedModel(Model):
 
 class Action(Model):
 
+    """Represents a unit of change at a specific point in time by a 
+    specific editor."""
+
     editor = ForeignKey(
         Editor, 
         related_name = "commits",
         db_index = True,
-        # There is a bug in Django that forces me to use
-        # null = True here, even though I shouldn't
-        # http://code.djangoproject.com/ticket/11920
-        null = True,
     )
 
     when = DateTimeField(
@@ -221,27 +222,26 @@ class Action(Model):
     def __unicode__(self):
         return "%s: %s" % (unicode(self.editor), unicode(self.when))
     
-    def description(self):
+    def _description(self):
+        """A concise html explanation of this Action."""
 
         inst = self.timemachine.presently
 
         if self.action_type == "dl":
             return "Deleted %s" % inst.content_type.name
-        if self.action_type == "cr":
-            return "Created %s" % inst.type_link()
+        elif self.action_type == "cr":
+            return "Created %s" % inst._object_type_html()
         else:
-            return "Modified %s" % inst.type_link()
+            return "Modified %s" % inst._object_type_html()
 
-    description.allow_tags = True
+    _description.allow_tags = True
     
     # To save database queries
     __timemachine = False
 
     def __get_timemachine(self):
-        """
-        Return a TimeMachine for the object on which this action was performed
-        and at the time of this action.
-        """
+        """Return a TimeMachine for the object on which this action was 
+        performed and at the time of this action."""
         if not self.__timemachine:
             self.__timemachine = TimeMachine(
                 self.object_uid,
@@ -253,6 +253,8 @@ class Action(Model):
     timemachine = property(__get_timemachine)
 
     def __get_is_revertible(self):
+        """Return a boolean representing whether this Action is revertible
+        or not"""
 
         # If it was already reverted
         if self.reverted:
@@ -307,16 +309,17 @@ class Action(Model):
             # it will cause deletion of other objects
             else:
                 links = [rel.get_accessor_name() 
-                         for rel in inst.get_object()._meta.get_all_related_objects()]
+                         for rel in \
+                         inst.get_object()._meta.get_all_related_objects()]
                 for link in links:
                     objects = getattr(inst.get_object(), link).all()
                     for rel in objects:
                         errors.append(
-                            "Cannot undo action %s: you are trying to"
-                            " delete a %s that has a %s pointing to it"
-                            % (self.id, 
-                               inst.content_type.name,
-                               ContentType.objects.get_for_model(rel.__class__),))
+                           "Cannot undo action %s: you are trying to"
+                           " delete a %s that has a %s pointing to it" %
+                           (self.id, 
+                            inst.content_type.name,
+                            ContentType.objects.get_for_model(rel.__class__),))
 
         self.__undo_errors = errors
         return (len(errors) == 0)
@@ -330,6 +333,9 @@ class Action(Model):
     undo_errors = property(__get__undo_errors)
 
     def undo(self):
+        """Create a new Action that undos the effects of this one, or,
+        more accurately, reverts the object of this Action to the state
+        at which it was right before the Action took place."""
         inst = self.timemachine
         if not self.is_revertible:
             raise DisciplineException("You tried to undo a non-revertible action! "
@@ -355,10 +361,13 @@ class Action(Model):
             ).order_by("-action__when")[0].action
             self.save()
 
-    def status(self):
+    def _status(self):
+        """Return html saying whether this Action is reverted by another
+        one or reverts another one."""
         text = ""
         # Turns out that is related field in null, Django
         # doesn't even make it a property of the object
+        # http://code.djangoproject.com/ticket/11920
         if hasattr(self, "reverts"):
             text += '(reverts <a href="%s">%s</a>)<br/>' % (
                 self.reverts.get_absolute_url(),
@@ -371,7 +380,7 @@ class Action(Model):
             )
         return text
     
-    status.allow_tags = True
+    _status.allow_tags = True
 
     def get_absolute_url(self):
         return urlresolvers.reverse(
@@ -379,7 +388,26 @@ class Action(Model):
             args = (self.uid,)
         ) 
 
-    def details(self):
+    def __summary(self):
+        """A plaintext summary of the Action, useful for debugging."""
+        text = "Time: %s\n" % self.when
+        text += "Comitter: %s\n" % self.editor
+
+        inst = self.timemachine.presently
+
+        if self.action_type == "dl":
+            text += "Deleted %s\n" % inst._object_type_text()
+        elif self.action_type == "cr":
+            text += "Created %s\n" % inst._object_type_text()
+        else:
+            text += "Modified %s\n" % inst._object_type_text()
+        text += self._details(nohtml=True)
+        return text
+
+    summary = property(__summary)
+
+    def _details(self, nohtml=False):
+        """Return the html representation of the Action."""
         text = ""
         inst = self.timemachine
 
@@ -390,21 +418,33 @@ class Action(Model):
         else: fields = [i.key for i in self.modification_commits.all()]
 
         for field in fields:
-            text += "<strong>%s</strong>: " % field
+            if not nohtml:
+                text += "<strong>%s</strong>: " % field
+            else:
+                text += "%s: " % field
 
             # If modified, show what it was like one step earlier
             if self.action_type == "md":
-                text += "%s &#8594; " % inst.at_previous_action.field_repr(field)
+                if not nohtml:
+                    text += "%s &#8594; " % \
+                            inst.at_previous_action._field_value_html(field)
+                else:
+                    text += "%s -> " % \
+                            inst.at_previous_action._field_value_text(field)
 
-            text += inst.field_repr(field) + "<br/>"
+            if not nohtml:
+                text += "%s<br/>" % inst._field_value_html(field)
+            else:
+                text += "%s\n" % inst._field_value_text(field)
 
         return text   
 
-    details.allow_tags = True
+    _details.allow_tags = True
 
     def save(self, commit=True, **kwargs):
-        if not self.editor:
-            self.editor = Editor.objects.get(user = threadlocals.get_current_user())
+        if not hasattr(self, "editor") or not self.editor:
+            current_user = threadlocals.get_current_user()
+            self.editor = Editor.objects.get(user = current_user)
         super(Action, self).save(**kwargs)
 
 class CreationCommit(Model):
@@ -459,9 +499,21 @@ class ModificationCommit(Model):
     uid = UUIDField()
  
 class TimeMachine:
+
+    """Use this to find the state of objects at different moments in time.
+
+    Constructor arguments:
+    uid -- The value of the uid field of the object for which you want a
+           TimeMachine.
+    when -- A Python datetime object representing the time at which the 
+           TimeMachine will be. (optional)
+    step -- The value of the id field of an Action. The TimeMachine will be
+           represent the time right after the Action. (Optional, by default
+           the TimeMachine will be at present Action. Incompatible with the
+           when argument.)
+
     """
-    Use this to find the state of objects at different moments in time
-    """
+
     def __init__(self, uid, when=None, step=None, info=None):
 
         self.uid = uid
@@ -476,8 +528,8 @@ class TimeMachine:
                     when__lte = self.when
                 )[0].id
             except IndexError:
-                raise DisciplineException("You tried to get an a TimeMachine at current "
-                                   "action, but there is no action!")
+                raise DisciplineException("You tried to get an a TimeMachine"
+                        "at current action, but there is no action!")
 
         elif step:
             self.step = step
@@ -541,8 +593,12 @@ class TimeMachine:
             setattr(self, key, info[key])
     
     def at(self, step):
-        """
-        Returns an instance of the same object at a different time.
+        """Return a TimeMachine for the same object at a different time.
+
+        Takes an integer argument representing the id field of an Action.
+        Returns the TimeMachine at the time of that Action. (Less ambiguously:
+        at the time right after the Action.
+
         """
         return TimeMachine(
             self.uid,
@@ -560,9 +616,8 @@ class TimeMachine:
 
     at_previous_action = property(__at_previous_action)
 
-    def get_modcommit(self, key):
-        """
-        Return the last modcommit of the given field. If no
+    def _get_modcommit(self, key):
+        """Return the last modcommit of the given field. If no
         modcommit exists (for example after a migration that created
         new fields) returns None.
         """
@@ -576,10 +631,15 @@ class TimeMachine:
             return None
 
     def get(self, key):
+        """Return the value of a field.
+        
+        Take a string argument representing a field name, return the value of
+        that field at the time of this TimeMachine. When restoring a 
+        ForeignKey-pointer object that doesn't exist, raise 
+        DisciplineException
+
         """
-        Returns the value of a field at the TimeMachine's current time.
-        """
-        modcommit = self.get_modcommit(key)
+        modcommit = self._get_modcommit(key)
         if not modcommit: return None
         # If this isn't a ForeignKey, then just return the value
         if key not in self.foreignkeys:
@@ -592,15 +652,20 @@ class TimeMachine:
                 "%s %s was not found." % (self.content_type.name, self.uid))
 
     def get_timemachine_instance(self, key):
+        """Return a TimeMachine for a related object.
+
+        Take a string argument representing a ForeignKey field name, find what
+        object was related to this one at the time of this TimeMachine and 
+        return a TimeMachine for that related object.
+
         """
-        Returns the TimeMachine instance of the object that is/was related
-        to this one by the given foreignkey name.
-        """
-        modcommit = self.get_modcommit(key)
-        if not modcommit: return None
+        modcommit = self._get_modcommit(key)
+        if not modcommit: 
+            return None
         return TimeMachine(uid = modcommit.value)
 
     def get_object(self):
+        """Return the object of this TimeMachine"""
         return self.content_type.model_class().objects.get(uid = self.uid)
 
     def __exists(self):
@@ -633,11 +698,9 @@ class TimeMachine:
     exists = property(__exists)
 
     def recreate(self):
-        """ 
-        If the object was deleted, recreate it as it was at this point in time.
-        Returns the instance.
+        """If the object was deleted, recreate it as it was at this point in time.
+        Return the Django object.
         """
-
         new = self.content_type.model_class()(uid = self.uid)
         self.restore(new)
 
@@ -653,9 +716,8 @@ class TimeMachine:
     current_action = property(__get_current_action)
 
     def restore(self, obj=None):
-        """ 
-        Restore all of the object attributes to the attributes. Returns the
-        instance.
+        """Restore all of the object attributes to the attributes. Return the
+        Django object.
         """
         if not obj:
             obj = self.content_type.model_class().objects.get(uid=self.uid)
@@ -668,28 +730,28 @@ class TimeMachine:
         return "%s (%s)" % (unicode(self.content_type), self.uid,)
             
     def url(self):
-        if self.exists:
-            return urlresolvers.reverse(
-                "admin:%s_%s_change" % (self.content_type.app_label,
-                                        self.content_type.model),
-                args = (self.get_object().uid,))
+        """Return the admin url of the object."""
+        return urlresolvers.reverse(
+            "admin:%s_%s_change" % (self.content_type.app_label,
+                                    self.content_type.model),
+            args = (self.get_object().uid,))
             
-        else:
-            return None
 
-    def type_link(self):
-        """ 
-        Provides a link with the object type as text. If the object doesn't
-        exist, the link is crossed out.
+    def _object_type_html(self):
+        """Return an html admin link with the object's type as text. If the 
+        object doesn't exist, return the object's type crossed out.
         """
 
-        url = self.url()
-        if url:
-            return "<a href=\"%s\">%s</a>" % (url, self.content_type.name,)
+        if self.exists:
+            return "<a href=\"%s\">%s</a>" % (self.url(), 
+                                              self.content_type.name,)
         else:
             return "<s>%s</s>" % self.content_type.name
     
-    def name_link(self):
+    def _object_name_html(self):
+        """Return an html admin link with the object's name as text. If the 
+        object doesn't exist, return "(deleted)".
+        """
         if self.presently.exists:
             url = self.url()
             return "<a href=\"%s\">%s</a>" % (url,
@@ -697,23 +759,49 @@ class TimeMachine:
         else:
             return "(deleted)"
     
-    def field_repr(self, field):
+    def _field_value_html(self, field):
+        """Return the html representation of the value of the given field"""
         if field in self.fields:
             return unicode(self.get(field))
         else:
-            return self.get_timemachine_instance(field).name_link()
+            return self.get_timemachine_instance(field)._object_name_html()
 
-import json
+    def _field_value_text(self, field):
+        """Return the html representation of the value of the given field"""
+        if field in self.fields:
+            return unicode(self.get(field))
+        else:
+            return self.get_timemachine_instance(field)._object_name_text()
+
+    def _object_name_text(self):
+        """Return the object's unicode representation. If the object doesn't 
+        exist, return "(deleted)".
+        """
+        if self.presently.exists:
+            return unicode(self.get_object())
+        else:
+            return "(deleted)"
+
+    def _object_type_text(self):
+        """Return the name of the object's content type."""
+        return self.content_type.name
 
 class SchemaState(Model):
+
+    """Record the state of each relevant model's fields at a point in time.
+
+    Fields:
+    when -- BooleanField representing the time of this snapshot
+    state -- TextField holding the json representation of the schema state.
+             Do not use this field, use public methods.
+
+    """
 
     when = DateTimeField(auto_now_add=True)
     state = TextField()
 
-    def schema_state(self):
-        return json.loads(self.state)
-
     def get_for_content_type(self, ct):
+        """Return the schema for the model of the given ContentType object"""
         try:
             return json.loads(self.state)[ct.app_label][ct.model]
         except KeyError:
@@ -723,9 +811,7 @@ class SchemaState(Model):
         ordering = ["-when"]
 
     def html_state(self):
-        """
-        Display state in HTML format for the admin form
-        """
+        """Display state in HTML format for the admin form."""
         ret = ""
         state = json.loads(self.state)
         for (app, appstate) in state.items():
@@ -734,7 +820,7 @@ class SchemaState(Model):
                 ret += "<ul>"
                 for field in modelstate["fields"] + ["uid"]:
                     ret += "<li>%s</li>" % field
-                for fk in modelstate["fks"]:
+                for fk in modelstate["foreignkeys"]:
                     ret += "<li>%s (foreign key)</li>" % fk
                 ret += "</ul>"
         return ret

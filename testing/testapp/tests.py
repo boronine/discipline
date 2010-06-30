@@ -4,11 +4,12 @@ import datetime
 
 from django.test import TestCase
 from django.contrib.auth.models import User, UserManager
-from discipline.models import *
-from testapp.models import *
-
 from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
+
+from discipline.models import *
+from discipline.testing.testapp.models import *
+
 
 class SchemaStateTest(TestCase):
 
@@ -25,11 +26,9 @@ class SchemaStateTest(TestCase):
         Editor(user=self.john).save()
 
     def test_too_late(self):
-        """
-        If during a schemastate migration you delete a model but
+        """If during a schemastate migration you delete a model but
         don't delete its every instance with Discipline, raise
-        a DisciplineIntegrityError
-        """
+        a DisciplineIntegrityError."""
 
         call_command("discipline_migrate", quiet=True)
 
@@ -45,12 +44,10 @@ class SchemaStateTest(TestCase):
         self.assertRaises(DisciplineIntegrityError, TimeMachine, epo.uid)
 
     def test_timemachine_schemastates(self):
-        """
-        Test to see if TimeMachine changes its 'fields' and 
+        """Test to see if TimeMachine changes its 'fields' and 
         'foreignkeys' properties when moved to a time with a 
         different schema state. Test that Discipline doesn't allow
-        you to revert an Action at a different schema.
-        """
+        you to revert an Action at a different schema."""
 
         call_command("discipline_migrate", quiet=True)
 
@@ -94,6 +91,7 @@ class GeneralDisciplineTests(TestCase):
             email = "john.doe@example.com",
             username = "johndoe"
         )
+        self.john.set_password("secret")
         self.john.save()
 
         settings.CURRENT_USER = self.john
@@ -111,6 +109,19 @@ class GeneralDisciplineTests(TestCase):
         WordConceptConnection(concept=self.concept, word=self.dog).save()
         WordConceptConnection(concept=self.concept, word=self.hundo).save()
 
+    def test_admin_noerrors(self):
+        """The only thing we can really test on the admin site is
+        whether there will be any errors while loading pages."""
+        self.client.login(username="johndoe", password="secret")
+        urls = (
+            "/admin/discipline/action/",
+            "/admin/discipline/action/1/",
+            "/admin/discipline/schemastate/1/",
+        )
+        for url in urls:
+            response = self.client.get(url)
+            self.failUnlessEqual(response.status_code, 200)
+
     def test_creation_basic(self):
         self.assertEquals(User.objects.count(), 1)        
         self.assertEquals(LanguageKey.objects.count(), 2)
@@ -118,9 +129,7 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(ModificationCommit.objects.count(), 10)
 
     def test_modification_action(self):
-        """
-        Test the creation of a modification action.
-        """
+        """Test the creation of a modification action."""
         self.hundo.full = "hundoj"
         self.hundo.save()
         lastact = Action.objects.all()[0]
@@ -131,9 +140,7 @@ class GeneralDisciplineTests(TestCase):
                           cPickle.dumps("hundoj"))
         
     def test_creation_action(self):
-        """
-        Test the creation of a creation action.
-        """
+        """Test the creation of a creation action."""
         rus = LanguageKey.objects.create(code="rus")
         sobaka = Word.objects.create(full="sobaka", language=rus)
         lastact = Action.objects.all()[0]
@@ -143,9 +150,7 @@ class GeneralDisciplineTests(TestCase):
                           ContentType.objects.get_for_model(Word))
 
     def test_deletion_action(self):
-        """
-        Test the creation of a deletion action.
-        """
+        """Test the creation of a deletion action."""
         wcc = WordConceptConnection.objects.all()[0]
         uid = wcc.uid
         wcc.delete()
@@ -154,10 +159,8 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(lastact.object_uid, uid)
 
     def test_deletion_action_cascade(self):
-        """
-        Make sure when deleting an object with ForeignKeys pointing
-        to it, Discipline will register the deletion of related objects.
-        """
+        """Make sure when deleting an object with ForeignKeys pointing
+        to it, Discipline will register the deletion of related objects."""
         hundo_uid = self.hundo.uid
         wcc_uid = self.hundo.concept_connections.all()[0].uid
         self.hundo.delete()
@@ -172,10 +175,8 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(wcc_act.object_uid, wcc_uid)
         
     def test_creation_action_undo(self):
-        """
-        Test undo of a creation action and the 'is_revertible' preperty
-        for creation actions.
-        """
+        """Test undo of a creation action and the 'is_revertible' preperty
+        for creation actions."""
         action = CreationCommit.objects.get(object_uid=self.dog.uid).action
         self.assertEquals(action.is_revertible, False)
         # Delete the WCC that keeps the dog from being deleted
@@ -187,10 +188,8 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(action.reverted, reverted)
 
     def test_modification_action_undo(self):
-        """
-        Test undo of a modification action and the 'is_revertible' preperty
-        for modification actions.
-        """
+        """Test undo of a modification action and the 'is_revertible' preperty
+        for modification actions."""
         cc = self.hundo.concept_connections.all()[0]
         cc.word = self.dog
         cc.save()
@@ -209,10 +208,8 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(action.reverted, reverted)
 
     def test_deletion_action_undo(self):
-        """
-        Test undo of a deletion action and the 'is_revertible' preperty
-        for deletion actions.
-        """
+        """Test undo of a deletion action and the 'is_revertible' preperty
+        for deletion actions."""
         cc = self.hundo.concept_connections.all()[0]
         cc.delete()
         action = Action.objects.all()[0]
@@ -226,9 +223,7 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(WordConceptConnection.objects.count(), 2)
 
     def test_timemachine_time(self):
-        """
-        Test the TimeMachine's 'at' and 'presently' properties.
-        """
+        """Test the TimeMachine's 'at' and 'presently' properties."""
         tm = TimeMachine(self.hundo.uid)
         created_on = CreationCommit.objects.get(object_uid=self.hundo.uid).action.id
         self.assertTrue(tm.exists)
@@ -241,9 +236,7 @@ class GeneralDisciplineTests(TestCase):
         self.assertTrue(tm.presently.exists)
 
     def test_timemachine_fields(self):
-        """
-        Test the TimeMachine's 'get' method.
-        """
+        """Test the TimeMachine's 'get' method."""
         tm = TimeMachine(self.hundo.uid)
         self.assertEquals(tm.get("full"), "hundo")
         self.assertEquals(tm.get("language"), self.epo)
@@ -253,24 +246,18 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(tm.presently.get("full"), "hundooo")
 
     def test_timemachine_get_timemachine_instance(self):
-        """
-        Test TimeMachine's 'get_timemachine_instance' method.
-        """
+        """Test TimeMachine's 'get_timemachine_instance' method."""
         tm = TimeMachine(self.hundo.uid)
         fktm = tm.get_timemachine_instance("language")
         self.assertEquals(fktm.get("code"), "epo")
 
     def test_timemachine_get_object(self):
-        """
-        Test TimeMachine's "get_object" method.
-        """
+        """Test TimeMachine's "get_object" method."""
         tm = TimeMachine(self.hundo.uid)
         self.assertEquals(tm.get_object(), self.hundo)
 
     def test_timemachine_current_action(self):
-        """
-        Test the TimeMachine's 'current_action' property
-        """
+        """Test the TimeMachine's 'current_action' property."""
         hundouid = self.hundo.uid
         self.hundo.delete()
         curact = Action.objects.all()[0]

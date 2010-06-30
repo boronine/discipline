@@ -41,6 +41,8 @@ USE_I18N = True
 # Example: "/home/media/media.lawrence.com/"
 MEDIA_ROOT = ''
 
+ROOT_URLCONF = 'discipline.testing.urls'
+
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash if there is a path component (optional in other cases).
 # Examples: "http://media.lawrence.com", "http://example.com/media/"
@@ -73,7 +75,7 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'discipine.middleware.threadlocals.ThreadLocals',
+    'discipline.middleware.threadlocals.ThreadLocals',
 )
 
 TEMPLATE_DIRS = (
@@ -91,6 +93,6 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'discipline',
     'south',
-    'testapp',
+    'discipline.testing.testapp',
 )
 
