@@ -53,9 +53,9 @@ ADMIN_MEDIA_PREFIX = '/media/'
 import os.path
 import sys
 
-# Make the pervert app accessible
+# Make the discipline app accessible
 PROJECT_ROOT = os.path.normpath(os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, '..'))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, '../..'))
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '5iu#e(ef79u#m=_&^jpll71=y#y)=2(k%o7&h&1rn)*x8yj%%i'
@@ -73,10 +73,8 @@ MIDDLEWARE_CLASSES = (
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'pervert.middleware.threadlocals.ThreadLocals',
+    'discipine.middleware.threadlocals.ThreadLocals',
 )
-
-ROOT_URLCONF = 'pervert.urls'
 
 TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
@@ -91,7 +89,8 @@ INSTALLED_APPS = (
     'django.contrib.sites',
     'django.contrib.messages',
     'django.contrib.admin',
-    'pervert',
-    'test_app',
+    'discipline',
+    'south',
+    'testapp',
 )
 

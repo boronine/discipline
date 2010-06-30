@@ -1,6 +1,6 @@
-from management.commands.pervert_migrate import Command
+from management.commands.discipline_migrate import Command
 def command(app, *args, **kwargs): 
-    print "Pervert detected a South migration, it will now save the new" \
+    print "Discipline detected a South migration, it will now save the new" \
         " schema state automatically."
     Command().handle()
 

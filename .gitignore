@@ -2,4 +2,8 @@
 *.pyc
 *.swp
 testing/testing.db
+testing/testing.db.bak
+testing/testapp/models.py
+testing/testapp/migrations
+migrations
 

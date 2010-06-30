@@ -1,29 +1,17 @@
-Pervert is a work in progress Django model version control system for
-a future free online dictionary. Since it could become useful for someone else's
-project, I've separated it from the dictionary into a standalone app.
+Discipline is a Django model version control system for
+a future free online dictionary. 
 
-Pervert records changes in their rawest form, which could be useful for a project 
+It records changes in their rawest form, which could be useful for a project 
 where many editors are working on data that is most natural to store in a 
 relational database. Apart from providing basic version control functions, it will
 allow for developers to perform more advanced queries and facilitate migrations.
 
-This is not meant to be a competitor to fine programs such as [Reversion][1], it 
-is made for a much narrower niche (in fact, I cannot off the top of my head 
-think of a project that might need Pervert. If you think yours does, it probably
-doesn't).
-
-To do:
-------
-1. Tie in with [South][2], make them play nicely together, changing schemas shouldn't
-cause any problems with Pervert whatsoever. (this will be the main "killer feature")
-1. Possibly more.
-
-Features so far
+Features 
 ---------------
 
 1. Records all creations, deletions and modifications (from django-admin or not).
 1. Displays them as "actions" in a detailed list.
-1. Each object's "history" page points to Pervert's detailed list of actions that
+1. Each object's "history" page points to Discipline's detailed list of actions that
 were performed on it.
 1. Has the ability to undo any action (checks for numerous possible problems before 
 proceeding)
@@ -32,10 +20,10 @@ proceeding)
 Overview
 --------
 
-To register a model with Pervert, it has to inherit the `pervert.models.AbstractPervert`
-class. Note that the `AbstractPervert` forces it to have `uid` (`CharField`) as the primary key.
+To register a model with Discipline, it has to inherit the `discipline.models.DisciplinedModel`
+class. Note that the `DisciplinedModel` forces it to have `uid` (`CharField`) as the primary key.
 
-Every action performed in the administrator interface gets tracked by Pervert. Most of
+Every action performed in the administrator interface gets tracked by Discipline. Most of
 the records are contained in the `CreationCommit`, `ModificationCommit` and 
 `DeletionCommit` objects. Each of those has minimalist models: `CreationCommit` only
 records the UUID and content type, `DeletionCommit` only the UUID and `ModificationCommit`
@@ -48,15 +36,15 @@ through an object's history, get the object's field values at any point in time,
 API
 ---
 
-#### `pervert.models.Action`
+#### `discipline.models.Action`
 
 Each time an object is created, modified or deleted an `Action` is created.
 
-`action.editor`
+ `action.editor`
 
 The editor, who commited the action. This is a Django field.
 
-`action.when`
+ `action.when`
 
 The `datetime`, when the action was commited. This is a Django field.
 
@@ -79,11 +67,11 @@ The UUID of the object that the action was performed on.
 
  `action.action_type`
 
-Either `"cr"`, `"md"` or `"dl"` for creation, modification and deletion, respectifully.
+Either `"cr"`, `"md"` or `"dl"` for creation, modification and deletion, respectfully.
 
  `action.is_revertible`
 
-`True` or `False` for whether it is possible to undo this action.
+Boolean indicating whether it is possible to undo this action.
 
  `action.undo_errors`
 
@@ -97,7 +85,7 @@ Reverts the action. Returns nothing.
 
 Returns the action's URL in Django admin.
 
-#### `pervert.models.TimeMachine`
+#### `discipline.models.TimeMachine`
 
 First argument in constructing a `TimeMachine` is the UUID of the object. Second (optional)
 argument is the datetime object specifying the point in time that you want the `TimeMachine` 
@@ -119,7 +107,8 @@ When the second argument isn't supplied, `TimeMachine` automatically moves to pr
 
 `machine.at(time)` 
 
-Returns a new `TimeMachine` instance for the same object, but moved to a different point in time.
+Returns a new `TimeMachine` instance for the same object, but moved to a different point in time. 
+Its arguments is the `id` field of an Action objects.
 
 `machine.presently`
 
@@ -132,7 +121,7 @@ A shortcut for `at(time)` that uses the time of the action previous to one right
 `machine.get(fieldname)`
 
 Gets the value of the field at the point in time. If the field is a `ForeignKey` and the object
-it is pointing to doesn't exist, raises `pervert.models.PervertError`.
+it is pointing to doesn't exist, raises `discipline.models.DisciplineError`.
 
 `machine.get_timemachine_instance(fieldname)`
 
@@ -152,7 +141,4 @@ by undoing a deletion action, it gets its old UUID.
 `machine.current_action`
 
 Points to the `Action` object with the `id` equaled to the `TimeMachine`'s time.
-
-[1]: http://code.google.com/p/django-reversion/ 
-[2]: http://south.aeracode.org/
 

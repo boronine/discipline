@@ -1,6 +1,6 @@
 # This is a hack from http://code.djangoproject.com/wiki/CookBookThreadlocalsAndUser
 # If you know a better way to access current user without a request, please fix this
-import settings
+from django.conf import settings
 
 try:
     from threading import local
@@ -19,3 +19,4 @@ class ThreadLocals(object):
     request object and saves them in thread local storage."""
     def process_request(self, request):
         _thread_locals.user = getattr(request, 'user', None)
+

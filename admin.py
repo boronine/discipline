@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 from django.contrib import admin
-from pervert.models import *
-from pervert.middleware import threadlocals
+from models import *
+from middleware import threadlocals
 from django import forms
 from django.contrib import messages
 from django.views.generic.simple import redirect_to
 from django.core import urlresolvers
 
-class PervertAdmin(admin.ModelAdmin):
+class DisciplinedModelAdmin(admin.ModelAdmin):
     readonly_fields = ("uid",)
     def get_actions(self, request):
         actions = super(PervertAdmin, self).get_actions(request)
         return actions
     def history_view(self, request, object_id, extra_context=None):
-        url = urlresolvers.reverse('admin:pervert_action_changelist')
+        url = urlresolvers.reverse('admin:discipline_action_changelist')
         # Redirect to Action list, but filtered for the specific action
         return redirect_to(request, url + "?q=" + object_id)
     

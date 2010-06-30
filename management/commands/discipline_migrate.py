@@ -1,22 +1,36 @@
 import json
+from django.conf import settings
+from django.db import models
 from django.core.management.base import BaseCommand, CommandError
-from pervert.models import AbstractPervert, SchemaState, PervertError
+from django.contrib.contenttypes.models import ContentType
+from discipline.models import DisciplinedModel, SchemaState, DisciplineException
 
 class Command(BaseCommand):
-    help = "Registers new schema for Pervert-controlled models"
+    help = "Registers new schema for Discipline-controlled models"
 
     def handle(self, quiet=False, *args, **options):
+
         state = {}
-        if not quiet: print "Reading the schema of Pervert-controlled models..."
+        if not quiet: print "Reading the schema of Discipline-controlled models..."
         state_text = ""
-        for cl in AbstractPervert.__subclasses__():
-            app = cl._meta.app_label
-            model = cl._meta.object_name
+
+        # All models in Django
+        for cl in models.get_models():
+
+            # Disregard models that don't inherit DisciplinedModel
+            if not issubclass(cl, DisciplinedModel): continue
+
+            content_type = ContentType.objects.get_for_model(cl)
+
+            app = content_type.app_label
+            model = content_type.model
+
             if app not in state.keys(): state[app] = {}
             if model not in state[app].keys(): state[app][model] = {
                 "fields": [],
                 "foreignkeys": []
             }
+
             state_text += "%s.models.%s\n" % (app, model,)
             for field in cl._meta.fields:
                 state_text += " * %s\n" % field.name
@@ -35,5 +49,5 @@ class Command(BaseCommand):
             # Save new state
             ss = SchemaState(state = json.dumps(state))
             ss.save()
-            if not quiet: print state_text + "SchemaState saved on %s" % ss.when
+            if not quiet: print "%s\nSchemaState saved on %s" % (state_text, ss.when)
 
