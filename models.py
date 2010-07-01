@@ -797,7 +797,7 @@ class SchemaState(Model):
 
     """
 
-    when = DateTimeField(auto_now_add=True)
+    when = DateTimeField(auto_now_add=True, verbose_name="Saved")
     state = TextField()
 
     def get_for_content_type(self, ct):
