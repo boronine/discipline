@@ -1,4 +1,5 @@
 import os
+import json
 import cPickle
 import datetime
 
@@ -22,8 +23,7 @@ class SchemaStateTest(TestCase):
             username = "johndoe"
         )
         self.john.save()
-        settings.CURRENT_USER = self.john
-        Editor(user=self.john).save()
+        self.editor = Editor.objects.create(user=self.john)
 
     def test_too_late(self):
         """If during a schemastate migration you delete a model but
@@ -32,7 +32,8 @@ class SchemaStateTest(TestCase):
 
         call_command("discipline_migrate", quiet=True)
 
-        epo = LanguageKey.objects.create(code="epo")
+        epo = LanguageKey(code="epo")
+        self.editor.save_object(epo)
 
         # Create a changed schema state
         ss = SchemaState.objects.order_by("-when")[0]
@@ -51,9 +52,13 @@ class SchemaStateTest(TestCase):
 
         call_command("discipline_migrate", quiet=True)
 
-        epo = LanguageKey.objects.create(code="epo")
-        eng = LanguageKey.objects.create(code="eng")
-        hundo = Word.objects.create(full="hundo", language=epo)
+        epo = LanguageKey(code="epo")
+        self.editor.save_object(epo)
+        eng = LanguageKey(code="eng")
+        self.editor.save_object(eng)
+
+        hundo = Word(full="hundo", language=epo)
+        self.editor.save_object(hundo)
 
         tm = TimeMachine(hundo.uid)
         self.assertEquals(tm.fields, ["full"])
@@ -68,7 +73,7 @@ class SchemaStateTest(TestCase):
         SchemaState.objects.create(state = json.dumps(newss))
 
         hundo.language = eng
-        hundo.save()
+        self.editor.save_object(hundo)
         self.assertEquals(tm.presently.fields, ["text"])
         self.assertEquals(tm.presently.foreignkeys, ["language", "type"])
 
@@ -96,18 +101,30 @@ class GeneralDisciplineTests(TestCase):
 
         settings.CURRENT_USER = self.john
 
-        Editor(user=self.john).save()
+        self.editor = Editor.objects.create(user=self.john)
 
-        self.eng = LanguageKey.objects.create(code="eng")
-        self.epo = LanguageKey.objects.create(code="epo")
+        self.eng = LanguageKey(code="eng")
+        self.epo = LanguageKey(code="epo")
 
-        self.concept = Concept.objects.create()
+        self.editor.save_object(self.eng)
+        self.editor.save_object(self.epo)
 
-        self.dog = Word.objects.create(full="dog", language=self.eng)
-        self.hundo = Word.objects.create(full="hundo", language=self.epo)
+        self.concept = Concept()
 
-        WordConceptConnection(concept=self.concept, word=self.dog).save()
-        WordConceptConnection(concept=self.concept, word=self.hundo).save()
+        self.editor.save_object(self.concept)
+
+        self.dog = Word(full="dog", language=self.eng)
+        self.hundo = Word(full="hundo", language=self.epo)
+
+        self.editor.save_object(self.dog)
+        self.editor.save_object(self.hundo)
+
+        self.editor.save_object(
+            WordConceptConnection(concept=self.concept, word=self.dog)
+        )
+        self.editor.save_object(
+            WordConceptConnection(concept=self.concept, word=self.hundo)
+        )
 
     def test_admin_noerrors(self):
         """The only thing we can really test on the admin site is
@@ -131,7 +148,7 @@ class GeneralDisciplineTests(TestCase):
     def test_modification_action(self):
         """Test the creation of a modification action."""
         self.hundo.full = "hundoj"
-        self.hundo.save()
+        self.editor.save_object(self.hundo)
         lastact = Action.objects.all()[0]
         self.assertEquals(lastact.action_type, "md")
         self.assertEquals(lastact.object_uid, self.hundo.uid)
@@ -141,8 +158,10 @@ class GeneralDisciplineTests(TestCase):
         
     def test_creation_action(self):
         """Test the creation of a creation action."""
-        rus = LanguageKey.objects.create(code="rus")
-        sobaka = Word.objects.create(full="sobaka", language=rus)
+        rus = LanguageKey(code="rus")
+        self.editor.save_object(rus)
+        sobaka = Word(full="sobaka", language=rus)
+        self.editor.save_object(sobaka)
         lastact = Action.objects.all()[0]
         self.assertEquals(lastact.action_type, "cr")
         self.assertEquals(lastact.object_uid, sobaka.uid)
@@ -153,7 +172,7 @@ class GeneralDisciplineTests(TestCase):
         """Test the creation of a deletion action."""
         wcc = WordConceptConnection.objects.all()[0]
         uid = wcc.uid
-        wcc.delete()
+        self.editor.delete_object(wcc)
         lastact = Action.objects.all()[0]
         self.assertEquals(lastact.action_type, "dl")
         self.assertEquals(lastact.object_uid, uid)
@@ -163,7 +182,7 @@ class GeneralDisciplineTests(TestCase):
         to it, Discipline will register the deletion of related objects."""
         hundo_uid = self.hundo.uid
         wcc_uid = self.hundo.concept_connections.all()[0].uid
-        self.hundo.delete()
+        self.editor.delete_object(self.hundo)
 
         hundo_act = Action.objects.all()[0]
         wcc_act = Action.objects.all()[1]
@@ -177,12 +196,13 @@ class GeneralDisciplineTests(TestCase):
     def test_creation_action_undo(self):
         """Test undo of a creation action and the 'is_revertible' preperty
         for creation actions."""
+        # Dog's creation action
         action = CreationCommit.objects.get(object_uid=self.dog.uid).action
         self.assertEquals(action.is_revertible, False)
         # Delete the WCC that keeps the dog from being deleted
-        self.dog.concept_connections.all()[0].delete()
+        self.editor.delete_object(self.dog.concept_connections.all()[0])
         self.assertEquals(action.is_revertible, True)
-        action.undo()
+        self.editor.undo_action(action)
         self.assertEquals(Word.objects.filter(full="dog").count(), 0)
         reverted = Action.objects.all()[0]
         self.assertEquals(action.reverted, reverted)
@@ -192,16 +212,16 @@ class GeneralDisciplineTests(TestCase):
         for modification actions."""
         cc = self.hundo.concept_connections.all()[0]
         cc.word = self.dog
-        cc.save()
+        self.editor.save_object(cc)
         action = Action.objects.all()[0]
         self.assertTrue(action.is_revertible)
         # The WCC used to link to hundo, deleting hundo will disable undo
-        self.hundo.delete()
+        self.editor.delete_object(self.hundo)
         self.assertFalse(action.is_revertible)
         self.dog.full = "dawg"
-        self.dog.save()
+        self.editor.save_object(self.dog)
         action = Action.objects.all()[0]
-        action.undo()
+        self.editor.undo_action(action)
         # Django's caching makes it seem like nothing has changed
         self.assertEquals(Word.objects.get(uid=self.dog.uid).full, "dog")
         reverted = Action.objects.all()[0]
@@ -211,15 +231,15 @@ class GeneralDisciplineTests(TestCase):
         """Test undo of a deletion action and the 'is_revertible' preperty
         for deletion actions."""
         cc = self.hundo.concept_connections.all()[0]
-        cc.delete()
+        self.editor.delete_object(cc)
         action = Action.objects.all()[0]
         self.assertTrue(action.is_revertible)
         # The WCC used to link to hundo, deleting hundo will disable undo
-        self.hundo.delete()
+        self.editor.delete_object(self.hundo)
         self.assertFalse(action.is_revertible)
-        Action.objects.all()[0].undo()
+        self.editor.undo_action(Action.objects.all()[0])
         self.assertTrue(action.is_revertible)
-        action.undo()
+        self.editor.undo_action(action)
         self.assertEquals(WordConceptConnection.objects.count(), 2)
 
     def test_timemachine_time(self):
@@ -229,10 +249,10 @@ class GeneralDisciplineTests(TestCase):
         self.assertTrue(tm.exists)
         self.assertTrue(tm.at(created_on).exists)
         self.assertFalse(tm.at(created_on).at_previous_action.exists)
-        self.hundo.delete()
+        self.editor.delete_object(self.hundo)
         action = Action.objects.all()[0]
         self.assertFalse(tm.presently.exists)
-        action.undo()
+        self.editor.undo_action(action)
         self.assertTrue(tm.presently.exists)
 
     def test_timemachine_fields(self):
@@ -241,7 +261,7 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(tm.get("full"), "hundo")
         self.assertEquals(tm.get("language"), self.epo)
         self.hundo.full = "hundooo"
-        self.hundo.save()
+        self.editor.save_object(self.hundo)
         self.assertEquals(tm.get("full"), "hundo")
         self.assertEquals(tm.presently.get("full"), "hundooo")
 

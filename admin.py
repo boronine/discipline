@@ -16,6 +16,14 @@ class DisciplinedModelAdmin(admin.ModelAdmin):
         url = urlresolvers.reverse('admin:discipline_action_changelist')
         # Redirect to Action list, but filtered for the specific action
         return redirect_to(request, url + "?q=" + object_id)
+    def log_addition(self, request, obj):
+        editor = Editor(user=request.user)
+        editor.save_object(obj)
+    def log_change(self, request, obj, method):
+        editor = Editor(user=request.user)
+        editor.save_object(obj)
+    def log_deletion(self, request, obj, obj_repr):
+        pass
     
 class ActionAdmin(admin.ModelAdmin):
     

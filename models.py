@@ -12,9 +12,20 @@ from django.db.models.signals import post_delete
 from django.contrib.contenttypes.models import ContentType
 from django.core import urlresolvers
 
-from discipline.middleware import threadlocals
+__all__ = (
+    "DisciplinedModel", 
+    "Editor", 
+    "Action", 
+    "SchemaState",
+    "CreationCommit",
+    "ModificationCommit",
+    "DeletionCommit",
+    "TimeMachine",
+    "DisciplineException",
+    "DisciplineIntegrityError",
+)
 
-def post_save_handler(instance, editor=None):
+def save_object(instance, editor):
 
     fields = []
     fks = []
@@ -26,40 +37,43 @@ def post_save_handler(instance, editor=None):
         if field.__class__.__name__ == "ForeignKey":
             fks.append(field.name)
 
-    if CreationCommit.objects.filter(object_uid=instance.uid):
+    # Existed at least at some point in time
+    existed = bool(CreationCommit.objects.filter(object_uid=instance.uid))
+
+    if existed:
         mods = []
         inst = TimeMachine(instance.uid)
         for field in fields:
             if inst.get(field) != getattr(instance, field):
                 mods.append(field)
         # Make sure there are actual changes
-        if inst.exists and not mods: return
+        if inst.exists and not mods: 
+            raise DisciplineException("You are trying to save an " \
+                "object with no modifications.")
 
     # The object doesn't exist
-    if (not CreationCommit.objects.filter(object_uid=instance.uid)
-        or not inst.exists):
+    if not existed or not inst.exists:
 
-        action = Action(
+        action = Action.objects.create(
             object_uid = instance.uid,
-            action_type = "cr"
+            action_type = "cr",
+            editor = editor,
         )
-        if editor: action.editor = editor
-        action.save()
 
         CreationCommit.objects.create(
             object_uid = instance.uid,
             action = action,
-            content_type = ContentType.objects.get_for_model(instance.__class__)
+            content_type = ContentType.objects \
+                .get_for_model(instance.__class__)
         )
         # Create a modcommit for everything
         if not mods: mods = fields
     else: 
-        action = Action(
+        action = Action.objects.create(
             object_uid = instance.uid,
-            action_type = "md"
+            action_type = "md",
+            editor = editor,
         )
-        if editor: action.editor = editor
-        action.save()
 
     # Create MicroCommit for each modification
     for field in mods:
@@ -76,45 +90,7 @@ def post_save_handler(instance, editor=None):
 
     return action
 
-def disciplined_post_save(instance, editor):
-    """
-    If you had to create an object in a way that didn't
-    run its inherited save() and didn't create an action,
-    (South data migrations, for example), run this.
-    """
-    return post_save_handler(instance, editor)
     
-def post_delete_handler(sender, editor=None, force=False, *args, **kwargs):
-    
-    if not force and not issubclass(sender, DisciplinedModel): 
-        return
-
-    instance = kwargs["instance"]
-
-    action = Action(
-        object_uid = instance.uid,
-        action_type = "dl"
-    )
-
-    if editor:
-        action.editor = editor
-
-    action.save()
-
-    DeletionCommit(
-        object_uid = instance.uid,
-        action = action,
-    ).save()
-
-    return action
-
-def disciplined_pre_delete(instance, editor):
-    """
-    See disciplined_post_save
-    """
-    return post_delete_handler(None, editor, force=True, instance=instance)
-
-post_delete.connect(post_delete_handler)
 
 
 class DisciplineException(Exception):
@@ -133,8 +109,39 @@ class Editor(Model):
         if not text:
             text = u"Anonymous %d" % self.user.id 
         return text
-        
-    objects = UserManager()
+
+    def save_object(self, obj):
+        obj.save()
+        save_object(obj, editor=self)
+
+    def delete_object(self, obj):
+        # Collect related objects that will be deleted by cascading
+        links = [rel.get_accessor_name() for rel in \
+                 obj._meta.get_all_related_objects()]
+        # Delete each of them
+        for link in links:
+            objects = getattr(obj, link).all()
+            for o in objects:
+                self._delete_object(o)
+        # Delete the actual object
+        self._delete_object(obj)
+
+    def _delete_object(self, obj):
+        action = Action.objects.create(
+            object_uid = obj.uid,
+            action_type = "dl",
+            editor = self,
+        )
+        DeletionCommit(
+            object_uid = obj.uid,
+            action = action,
+        ).save()
+        obj.delete()
+
+    def undo_action(self, action):
+        action.undo(self)
+
+    #objects = UserManager()
 
 def get_uuid():
     return uuid.uuid4().hex
@@ -169,25 +176,13 @@ class DisciplinedModel(Model):
     class Meta:
         abstract = True
     
-    # I use signals for deletion because when deletion cascades to
-    # related objects, Django doesn't call each object's delete method
-    def save(self, *args, **kwargs):
-        out = super(DisciplinedModel, self).save(*args, **kwargs)
-        post_save_handler(self)
-        return out
-
-    def save_and_return_action(self):
-        super(DisciplinedModel, self).save()
-        return post_save_handler(self)
-
-
 class Action(Model):
 
     """Represents a unit of change at a specific point in time by a 
     specific editor."""
 
     editor = ForeignKey(
-        Editor, 
+        "Editor", 
         related_name = "commits",
         db_index = True,
     )
@@ -332,7 +327,7 @@ class Action(Model):
 
     undo_errors = property(__get__undo_errors)
 
-    def undo(self):
+    def undo(self, editor):
         """Create a new Action that undos the effects of this one, or,
         more accurately, reverts the object of this Action to the state
         at which it was right before the Action took place."""
@@ -343,22 +338,22 @@ class Action(Model):
                                " before trying to undo.")
 
         if self.action_type == "dl":
-            obj = inst.recreate()
-            self.reverted = obj.save_and_return_action()
+            obj = inst.restore()
+            self.reverted = save_object(obj, editor)
             self.save()
         elif self.action_type == "md":
             # Restore as it was *before* the modification
             obj = inst.at_previous_action.restore()
-            self.reverted = obj.save_and_return_action()
+            self.reverted = save_object(obj, editor)
             self.save()
         else:
-            inst.get_object().delete()
+            editor.delete_object(inst.get_object())
             # This is safe from race conditions but still a pretty inelegant
             # solution. I can't figure out a different way to find the last action
-            # because delete handler *has* to be in a signal
+            # for now
             self.reverted = DeletionCommit.objects.filter(
                 object_uid = self.object_uid
-            ).order_by("-action__when")[0].action
+            ).order_by("-action__id")[0].action
             self.save()
 
     def _status(self):
@@ -440,12 +435,6 @@ class Action(Model):
         return text   
 
     _details.allow_tags = True
-
-    def save(self, commit=True, **kwargs):
-        if not hasattr(self, "editor") or not self.editor:
-            current_user = threadlocals.get_current_user()
-            self.editor = Editor.objects.get(user = current_user)
-        super(Action, self).save(**kwargs)
 
 class CreationCommit(Model):
 
@@ -547,7 +536,9 @@ class TimeMachine:
         ss = SchemaState.objects.filter(when__lt = self.when)[0]\
                 .get_for_content_type(self.content_type)
 
-        if not ss: 
+        self.model_exists = not not ss
+
+        if not self.model_exists: 
             if sorted(self.creation_times)[0] <= self.step:
                 raise DisciplineIntegrityError(
                     "%s with uid %s was created before the schema for its" \
@@ -561,6 +552,8 @@ class TimeMachine:
         self.foreignkeys = ss["foreignkeys"]
 
     def __update_information(self):
+        """Gether information that doesn't change at different points in
+        time"""
 
         info = {}
 
@@ -697,15 +690,6 @@ class TimeMachine:
     
     exists = property(__exists)
 
-    def recreate(self):
-        """If the object was deleted, recreate it as it was at this point in time.
-        Return the Django object.
-        """
-        new = self.content_type.model_class()(uid = self.uid)
-        self.restore(new)
-
-        return new
-        
     __current_action = None
 
     def __get_current_action(self):
@@ -715,15 +699,17 @@ class TimeMachine:
 
     current_action = property(__get_current_action)
 
-    def restore(self, obj=None):
+    def restore(self, nosave=False):
         """Restore all of the object attributes to the attributes. Return the
         Django object.
         """
-        if not obj:
+        if self.exists:
             obj = self.content_type.model_class().objects.get(uid=self.uid)
+        else:
+            obj = self.content_type.model_class()(uid=self.uid)
         for field in self.fields + self.foreignkeys:
             obj.__setattr__(field, self.get(field))
-
+        if not nosave: obj.save()
         return obj
     
     def __unicode__(self):

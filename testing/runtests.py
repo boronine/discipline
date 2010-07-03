@@ -45,7 +45,7 @@ def call(command, safe=False):
 
 def nextphase(phase):
     command = ["python", "runtests.py", "--" + phase]
-    if verbose: command += "-v"
+    if verbose: command += ["-v"]
     subprocess.call(command)
 
 help_text = """
@@ -100,9 +100,10 @@ def run_unit_tests():
     newmodels(unit_test_models)
     # Run Django tests
     if call("python manage.py test testapp", safe=True):
-        print "Django tests failed! Rerunning verbosely"
-        verbose = True
-        call("python manage.py test testapp", safe=True)
+        if not verbose:
+            print "Django tests failed! Rerunning verbosely"
+            verbose = True
+            call("python manage.py test testapp", safe=True)
     else:
         print " - Unit tests sucessful!"
 
@@ -149,14 +150,17 @@ def special_phase1():
         email = "john.doe@example.com",
         username = "johndoe"
     )
-    django_settings.CURRENT_USER = john
-    Editor(user=john).save()
+    editor = Editor.objects.create(user=john)
 
     # Make a bunch of objects
-    kc = Band.objects.create(name="King Crimson", irrelevant_field="KC")
-    gg = Band.objects.create(name="Gentle Giant")
-    rf = Member.objects.create(name="Robert Fripp", band=kc)
-    ds = Member.objects.create(name="Derek Shulman", band=gg)
+    kc = Band(name="King Crimson", irrelevant_field="KC")
+    gg = Band(name="Gentle Giant")
+    editor.save_object(kc)
+    editor.save_object(gg)
+    rf = Member(name="Robert Fripp", band=kc)
+    ds = Member(name="Derek Shulman", band=gg)
+    editor.save_object(rf)
+    editor.save_object(ds)
 
     # Use change testapp's schema
     newmodels(data_migration_models)
@@ -199,9 +203,6 @@ def special_phase2():
 
     print " - Testing objects"
 
-    john = User.objects.get(username="johndoe")
-    django_settings.CURRENT_USER = john
-
     # Did the data migration work?
     assert Musician.objects.count() == 2, "Musicians were not created after migration"
 
@@ -224,7 +225,7 @@ import datetime
 from south.db import db
 from south.v2 import DataMigration
 from django.db import models
-from discipline.models import Editor, disciplined_post_save, disciplined_pre_delete
+from discipline.models import Editor
 
 class Migration(DataMigration):
 
@@ -232,11 +233,8 @@ class Migration(DataMigration):
         john = Editor.objects.all()[0]
         for m in orm.Member.objects.all():
             musician = orm.Musician(name = m.name, band = m.band)
-            musician.save()
-            disciplined_post_save(musician, john)
-            disciplined_pre_delete(m, john)
-            m.delete()
-
+            john.save_object(musician)
+            john.delete_object(m)
 
     def backwards(self, orm):
         "Write your backwards methods here."
