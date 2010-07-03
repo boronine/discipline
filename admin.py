@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.contrib import admin
 from models import *
-from middleware import threadlocals
 from django import forms
 from django.contrib import messages
 from django.views.generic.simple import redirect_to
@@ -17,13 +16,20 @@ class DisciplinedModelAdmin(admin.ModelAdmin):
         # Redirect to Action list, but filtered for the specific action
         return redirect_to(request, url + "?q=" + object_id)
     def log_addition(self, request, obj):
-        editor = Editor(user=request.user)
-        editor.save_object(obj)
-    def log_change(self, request, obj, method):
-        editor = Editor(user=request.user)
-        editor.save_object(obj)
-    def log_deletion(self, request, obj, obj_repr):
         pass
+    def log_change(self, request, obj, method):
+        pass
+    def log_deletion(self, request, obj, obj_repr):
+        # Strangely, there is no delete_model method in ModelAdmin, so
+        # this is a hack to avoid using signals and call delete_object
+        # from DisciplinedModelAdmin like it should be.
+        # Let's wait for this bug to be sorted out:
+        # http://code.djangoproject.com/ticket/11108
+        editor = Editor.objects.get(user=request.user)
+        editor.delete_object(obj, post_delete=True)
+    def save_model(self, request, obj, form, change):
+        editor = Editor.objects.get(user=request.user)
+        editor.save_object(obj)
     
 class ActionAdmin(admin.ModelAdmin):
     
@@ -53,14 +59,12 @@ class ActionAdmin(admin.ModelAdmin):
         return obj.when.strftime('%d %b %Y %H:%M')
 
     def undo_actions(self, request, queryset):
-        
+        editor = Editor.objects.get(user=request.user)
         actions = list(queryset.order_by("-when"))
         errors = []
-
         for action in actions:
-            if action.is_revertible: action.undo()
+            if action.is_revertible: editor.undo_action(action)
             else: errors.extend(action.undo_errors)
-
         for error in errors:
             messages.error(request, error)
     

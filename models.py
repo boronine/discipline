@@ -7,8 +7,7 @@ import json
 import datetime
 
 from django.db.models import *
-from django.contrib.auth.models import User, UserManager
-from django.db.models.signals import post_delete
+from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.core import urlresolvers
 
@@ -114,7 +113,7 @@ class Editor(Model):
         obj.save()
         save_object(obj, editor=self)
 
-    def delete_object(self, obj):
+    def delete_object(self, obj, post_delete=False):
         # Collect related objects that will be deleted by cascading
         links = [rel.get_accessor_name() for rel in \
                  obj._meta.get_all_related_objects()]
@@ -122,11 +121,11 @@ class Editor(Model):
         for link in links:
             objects = getattr(obj, link).all()
             for o in objects:
-                self._delete_object(o)
+                self.delete_object(o, post_delete)
         # Delete the actual object
-        self._delete_object(obj)
+        self._delete_object(obj, post_delete)
 
-    def _delete_object(self, obj):
+    def _delete_object(self, obj, post_delete):
         action = Action.objects.create(
             object_uid = obj.uid,
             action_type = "dl",
@@ -136,7 +135,7 @@ class Editor(Model):
             object_uid = obj.uid,
             action = action,
         ).save()
-        obj.delete()
+        if not post_delete: obj.delete()
 
     def undo_action(self, action):
         action.undo(self)
