@@ -110,14 +110,24 @@ class Editor(Model):
         return text
 
     def save_object(self, obj):
+        """Save an object with Discipline
+
+        Only argument is a Django object. This function saves the object
+        (regardless of whether it already exists or not) and registers with
+        Discipline, creating a new Action object. Do not use obj.save()!
+        """
         obj.save()
         save_object(obj, editor=self)
 
     def delete_object(self, obj, post_delete=False):
+        """Delete an object with Discipline
+
+        Only argument is a Django object. Analogous to Editor.save_object.
+        """
         # Collect related objects that will be deleted by cascading
         links = [rel.get_accessor_name() for rel in \
                  obj._meta.get_all_related_objects()]
-        # Delete each of them
+        # Recursively delete each of them
         for link in links:
             objects = getattr(obj, link).all()
             for o in objects:
@@ -138,9 +148,8 @@ class Editor(Model):
         if not post_delete: obj.delete()
 
     def undo_action(self, action):
+        """Undo the given action"""
         action.undo(self)
-
-    #objects = UserManager()
 
 def get_uuid():
     return uuid.uuid4().hex

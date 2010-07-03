@@ -1,8 +1,9 @@
 *~
 *.pyc
 *.swp
-testing/testing.db*
-testing/testapp/models.py
-testing/testapp/migrations
-migrations
+*.swo
+discipline/testing/testing.db*
+discipline/testing/testapp/models.py
+discipline/testing/testapp/migrations
+discipline/migrations
 
