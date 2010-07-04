@@ -2,8 +2,11 @@
 *.pyc
 *.swp
 *.swo
-discipline/testing/testing.db*
-discipline/testing/testapp/models.py
-discipline/testing/testapp/migrations
+testing/testing.db*
+testing/testapp/models.py
+testing/testapp/migrations
 discipline/migrations
+dist
+Discipline.egg-info
+docs/build/*
 

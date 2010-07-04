@@ -21,13 +21,13 @@ import settings
 setup_environ(settings)
 
 from discipline.models import *
-from testapp.models import *
+from testing.testapp.models import *
 
 testing_dir = os.path.normpath(os.path.dirname(__file__))
 os.chdir(testing_dir)
 
 # Make the discipline package accessible
-sys.path.append("../..")
+sys.path.append("..")
 
 # Whether to print system output for 'special' tests
 verbose = False

@@ -89,9 +89,6 @@ def save_object(instance, editor):
 
     return action
 
-    
-
-
 class DisciplineException(Exception):
     pass
 
@@ -100,7 +97,7 @@ class DisciplineIntegrityError(Exception):
 
 class Editor(Model):
 
-    user = ForeignKey(User, unique=True)
+    user = ForeignKey(User, unique=True, null=True)
 
     def __unicode__(self):
         text = self.user.first_name + " " + self.user.last_name
@@ -220,7 +217,8 @@ class Action(Model):
 
     class Meta:
         # Most of the time you will need most recent
-        ordering = ['-when']
+        ordering = ["-when"]
+        get_latest_by = "id"
 
     def __unicode__(self):
         return "%s: %s" % (unicode(self.editor), unicode(self.when))
@@ -459,7 +457,6 @@ class CreationCommit(Model):
         related_name = "creation_commits",
         db_index = True
     )
-    uid = UUIDField()
 
     def __unicode__(self):
         return "%s %s" % (self.content_type.name, self.object_uid,)
@@ -475,7 +472,6 @@ class DeletionCommit(Model):
         related_name = "deletion_commits",
         db_index = True
     )
-    uid = UUIDField()
 
 class ModificationCommit(Model):
 
@@ -493,7 +489,6 @@ class ModificationCommit(Model):
         null = True
     )
     value = TextField(null=True)
-    uid = UUIDField()
  
 class TimeMachine:
 

@@ -30,7 +30,7 @@ class DisciplinedModelAdmin(admin.ModelAdmin):
     def save_model(self, request, obj, form, change):
         editor = Editor.objects.get(user=request.user)
         editor.save_object(obj)
-    
+
 class ActionAdmin(admin.ModelAdmin):
     
     list_display = (
@@ -47,6 +47,7 @@ class ActionAdmin(admin.ModelAdmin):
         "_description",
         "_details",
         "_status",
+        "summary",
     )
     exclude = ("reverted","action_type","object_uid")
     list_filter = ("editor",)

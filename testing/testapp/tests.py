@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.management import call_command
 
 from discipline.models import *
-from discipline.testing.testapp.models import *
+from testing.testapp.models import *
 
 
 class SchemaStateTest(TestCase):
@@ -149,7 +149,7 @@ class GeneralDisciplineTests(TestCase):
         """Test the creation of a modification action."""
         self.hundo.full = "hundoj"
         self.editor.save_object(self.hundo)
-        lastact = Action.objects.all()[0]
+        lastact = Action.objects.latest()
         self.assertEquals(lastact.action_type, "md")
         self.assertEquals(lastact.object_uid, self.hundo.uid)
         self.assertEquals(lastact.modification_commits.all()[0].key, "full")
@@ -162,7 +162,7 @@ class GeneralDisciplineTests(TestCase):
         self.editor.save_object(rus)
         sobaka = Word(full="sobaka", language=rus)
         self.editor.save_object(sobaka)
-        lastact = Action.objects.all()[0]
+        lastact = Action.objects.latest()
         self.assertEquals(lastact.action_type, "cr")
         self.assertEquals(lastact.object_uid, sobaka.uid)
         self.assertEquals(lastact.creation_commits.all()[0].content_type,
@@ -173,7 +173,7 @@ class GeneralDisciplineTests(TestCase):
         wcc = WordConceptConnection.objects.all()[0]
         uid = wcc.uid
         self.editor.delete_object(wcc)
-        lastact = Action.objects.all()[0]
+        lastact = Action.objects.latest()
         self.assertEquals(lastact.action_type, "dl")
         self.assertEquals(lastact.object_uid, uid)
 
@@ -204,7 +204,7 @@ class GeneralDisciplineTests(TestCase):
         self.assertEquals(action.is_revertible, True)
         self.editor.undo_action(action)
         self.assertEquals(Word.objects.filter(full="dog").count(), 0)
-        reverted = Action.objects.all()[0]
+        reverted = Action.objects.latest()
         self.assertEquals(action.reverted, reverted)
 
     def test_modification_action_undo(self):
@@ -213,18 +213,18 @@ class GeneralDisciplineTests(TestCase):
         cc = self.hundo.concept_connections.all()[0]
         cc.word = self.dog
         self.editor.save_object(cc)
-        action = Action.objects.all()[0]
+        action = Action.objects.latest()
         self.assertTrue(action.is_revertible)
         # The WCC used to link to hundo, deleting hundo will disable undo
         self.editor.delete_object(self.hundo)
         self.assertFalse(action.is_revertible)
         self.dog.full = "dawg"
         self.editor.save_object(self.dog)
-        action = Action.objects.all()[0]
+        action = Action.objects.latest()
         self.editor.undo_action(action)
         # Django's caching makes it seem like nothing has changed
         self.assertEquals(Word.objects.get(uid=self.dog.uid).full, "dog")
-        reverted = Action.objects.all()[0]
+        reverted = Action.objects.latest()
         self.assertEquals(action.reverted, reverted)
 
     def test_deletion_action_undo(self):
@@ -232,12 +232,12 @@ class GeneralDisciplineTests(TestCase):
         for deletion actions."""
         cc = self.hundo.concept_connections.all()[0]
         self.editor.delete_object(cc)
-        action = Action.objects.all()[0]
+        action = Action.objects.latest()
         self.assertTrue(action.is_revertible)
         # The WCC used to link to hundo, deleting hundo will disable undo
         self.editor.delete_object(self.hundo)
         self.assertFalse(action.is_revertible)
-        self.editor.undo_action(Action.objects.all()[0])
+        self.editor.undo_action(Action.objects.latest())
         self.assertTrue(action.is_revertible)
         self.editor.undo_action(action)
         self.assertEquals(WordConceptConnection.objects.count(), 2)
@@ -250,7 +250,7 @@ class GeneralDisciplineTests(TestCase):
         self.assertTrue(tm.at(created_on).exists)
         self.assertFalse(tm.at(created_on).at_previous_action.exists)
         self.editor.delete_object(self.hundo)
-        action = Action.objects.all()[0]
+        action = Action.objects.latest()
         self.assertFalse(tm.presently.exists)
         self.editor.undo_action(action)
         self.assertTrue(tm.presently.exists)
@@ -280,7 +280,7 @@ class GeneralDisciplineTests(TestCase):
         """Test the TimeMachine's 'current_action' property."""
         hundouid = self.hundo.uid
         self.hundo.delete()
-        curact = Action.objects.all()[0]
+        curact = Action.objects.latest()
         self.assertEquals(curact.id, TimeMachine(hundouid).current_action.id)
 
 

@@ -41,7 +41,7 @@ USE_I18N = True
 # Example: "/home/media/media.lawrence.com/"
 MEDIA_ROOT = ''
 
-ROOT_URLCONF = 'discipline.testing.urls'
+ROOT_URLCONF = 'testing.urls'
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash if there is a path component (optional in other cases).
@@ -57,7 +57,7 @@ import sys
 
 # Make the discipline app accessible
 PROJECT_ROOT = os.path.normpath(os.path.dirname(__file__))
-sys.path.insert(0, os.path.join(PROJECT_ROOT, '../..'))
+sys.path.insert(0, os.path.join(PROJECT_ROOT, '..'))
 
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = '5iu#e(ef79u#m=_&^jpll71=y#y)=2(k%o7&h&1rn)*x8yj%%i'
@@ -92,6 +92,6 @@ INSTALLED_APPS = (
     'django.contrib.admin',
     'discipline',
     'south',
-    'discipline.testing.testapp',
+    'testing.testapp',
 )
 
