@@ -22,9 +22,9 @@ Add Discipline to the ``INSTALLED_APPS`` in your project's ``settings.py`` file.
 
 Every model controlled by Discipline has to inherit from the :class:`discipline.models.DisciplinedModel` class, keep in mind the following limitations:
 
-* Discipline can't work with ``ManyToManyField`` or ``OneToOneField``.
+* Discipline can't work with :class:`ManyToManyField` or :class:`OneToOneField`.
 * If a Discipline-controlled model is related to another model, the other one *has* to be Discipline-controlled as well.
-* Discipline will force every Discipline-controlled model to have a :class:`discipline.models.UUIDField` as its primary key, with the field name ``uid``. 
+* Discipline will force every Discipline-controlled model to have a :class:`discipline.models.UUIDField` as its primary key, with the field name *uid*. 
 
 ::
 
@@ -110,7 +110,7 @@ For every change, a :class:`discipline.models.Action` object is created, let's l
 
 You can undo many actions with :meth:`~discipline.models.Editor.undo_action()`::
 
-    >>> editor.undo_action(Action.objects.all()[0]) # Undo last action
+    >>> editor.undo_action(Action.objects.latest()) # Undo last action
     >>> Action.objects.latest().summary # A new action has been created
     Time: 2010-07-04 01:27:58.230695 
     Comitter: John Doe

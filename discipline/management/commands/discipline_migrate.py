@@ -1,4 +1,7 @@
-import json
+try:
+    import json
+except ImportError:
+    import simplejson as json 
 from django.conf import settings
 from django.db import models
 from django.core.management.base import BaseCommand, CommandError

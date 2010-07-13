@@ -3,7 +3,10 @@
 import cPickle
 import uuid
 import copy
-import json
+try:
+    import json
+except ImportError:
+    import simplejson as json 
 import datetime
 
 from django.db.models import *
