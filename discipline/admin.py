@@ -47,7 +47,6 @@ class ActionAdmin(admin.ModelAdmin):
         "_description",
         "_details",
         "_status",
-        "summary",
     )
     exclude = ("reverted","action_type","object_uid")
     list_filter = ("editor",)
