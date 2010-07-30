@@ -117,7 +117,10 @@ class Editor(Model):
         Discipline, creating a new Action object. Do not use obj.save()!
         """
         obj.save()
-        save_object(obj, editor=self)
+        try:
+            save_object(obj, editor=self)
+        except DisciplineException:
+            pass
 
     def delete_object(self, obj, post_delete=False):
         """Delete an object with Discipline
