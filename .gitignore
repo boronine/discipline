@@ -9,4 +9,5 @@ discipline/migrations
 dist
 Discipline.egg-info
 docs/build/*
+disciplinesite/demo.db
 
