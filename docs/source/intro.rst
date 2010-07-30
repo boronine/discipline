@@ -1,7 +1,7 @@
 Introduction
 ============
 
-Discipline is a BSD-licensed model versioning system for the `Django <http://djangoproject.com>`_ framework. It stores all changes performed on a database in their rawest form, which allows for advanced database-level queries.
+Discipline is an MIT-licensed model versioning system for the `Django <http://djangoproject.com>`_ framework. It stores all changes performed on a database in their rawest form, which allows for advanced database-level queries.
 
 Features
 """"""""
