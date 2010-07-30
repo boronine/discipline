@@ -3,7 +3,7 @@ API Reference
 
 .. module:: discipline.models
 
-:class:`~Action` -- `A unit of change`
+:class:`~Action` -- A unit of change
 --------------------------------------------------------
 
 .. class:: Action
@@ -90,7 +90,7 @@ If *act* is revertible (see :meth:`~Action.is_revertible`), undo the action.
 
 For a deletion action, this will recreate the object just as it was before it was deleted (including its *uid* field!). For a creation action, it will delete the object. For a modification action, it will restore the object's state as it was right before it was modified.
 
-:class:`~TimeMachine` -- `Objects at different points in time`
+:class:`~TimeMachine` -- Objects at different points in time
 --------------------------------------------------------------------------------
 
 .. class:: TimeMachine(uid[, when=None[, step=None]])
@@ -148,7 +148,7 @@ A :class:`TextField` holding the *json* representation of the schema state. Do n
 
 Takes a :class:`django.contrib.contenttypes.models.ContentType` object and returns a dict in the form of ``{"fields":["field1", "field2"], "foreignkeys":["fk1"]}`` where *fields* are all non-:class:`ForeignKey` fields.
 
-:class:`~CreationCommit`, :class:`~ModificationCommit`, :class:`~DeletionCommit` -- `At the lowest level`
+:class:`~CreationCommit`, :class:`~ModificationCommit`, :class:`~DeletionCommit` -- At the lowest level
 ---------------------------------------------------------------------------------------------------------
 
 The essense of each change is stored in :class:`CreationCommit`, :class:`ModificationCommit` and :class:`DeletionCommit` objects. Every creation action is composed of one :class:`CreationCommit` and as many :class:`ModificationCommit` objects as there are fields. Every modification action is composed of as many :class:`ModificationCommit` objects as there are fields *modified*. Every deletion action is composed of a single :class:`DeletionCommit`.
