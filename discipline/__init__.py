@@ -6,7 +6,7 @@ try:
         print "Discipline detected a South migration, it will now save the new" \
             " schema state automatically."
         Command().handle()
-    # Every time a user performs a South migration, Pervert should
+    # Every time a user performs a South migration, Discipline should
     # perform a migration of its own, this is in case the user forgets
     # to run "manage.py pervert_migrate"
     post_migrate.connect(command)
