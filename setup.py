@@ -12,7 +12,7 @@ setup(
     version=__version__,
     description='Discipline: model version control for Django',
     long_description="Discipline is a model version control system for " \
-        "Django with admin website integration and low-level APU for " \
+        "Django with admin website integration and low-level API for " \
         "accessing objects' states at different points in time",
     author="Alexei Boronine",
     license="MIT",
