@@ -1,0 +1,413 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>API Reference &mdash; Discipline 0.9 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Discipline 0.9 documentation" href="index.html" />
+    <link rel="prev" title="Tutorial" href="tutorial.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Discipline 0.9 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="module-discipline.models">
+<span id="api-reference"></span><h1>API Reference<a class="headerlink" href="#module-discipline.models" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="action-a-unit-of-change">
+<h2><a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> &#8211; A unit of change<a class="headerlink" href="#action-a-unit-of-change" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="discipline.models.Action">
+<em class="property">class </em><tt class="descclassname">discipline.models.</tt><tt class="descname">Action</tt><a class="headerlink" href="#discipline.models.Action" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>An <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> object represents a single unit of change (creation, modification, deletion) done by a single <a class="reference internal" href="#discipline.models.Editor" title="discipline.models.Editor"><tt class="xref py py-class docutils literal"><span class="pre">Editor</span></tt></a> at a specific point in time.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.editor">
+<tt class="descclassname">Action.</tt><tt class="descname">editor</tt><a class="headerlink" href="#discipline.models.Action.editor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">ForeignKey</span></tt> for the <a class="reference internal" href="#discipline.models.Editor" title="discipline.models.Editor"><tt class="xref py py-class docutils literal"><span class="pre">Editor</span></tt></a> that performed this action.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.when">
+<tt class="descclassname">Action.</tt><tt class="descname">when</tt><a class="headerlink" href="#discipline.models.Action.when" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">DateTimeField</span></tt> representing the time when the action was performed.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.reverted">
+<tt class="descclassname">Action.</tt><tt class="descname">reverted</tt><a class="headerlink" href="#discipline.models.Action.reverted" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="discipline.models.Action.reverts">
+<tt class="descclassname">Action.</tt><tt class="descname">reverts</tt><a class="headerlink" href="#discipline.models.Action.reverts" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A self-referencing <tt class="xref py py-class docutils literal"><span class="pre">OneToOneField</span></tt>. If <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> <em>A</em> reverts <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> <em>B</em>, <tt class="docutils literal"><span class="pre">A.reverts</span></tt> will equal <em>B</em> and <tt class="docutils literal"><span class="pre">B.reverted</span></tt> will equal <em>A</em>.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.creation_commits">
+<tt class="descclassname">Action.</tt><tt class="descname">creation_commits</tt><a class="headerlink" href="#discipline.models.Action.creation_commits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="discipline.models.Action.modification_commits">
+<tt class="descclassname">Action.</tt><tt class="descname">modification_commits</tt><a class="headerlink" href="#discipline.models.Action.modification_commits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="discipline.models.Action.deletion_commits">
+<tt class="descclassname">Action.</tt><tt class="descname">deletion_commits</tt><a class="headerlink" href="#discipline.models.Action.deletion_commits" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>The <a class="reference internal" href="#discipline.models.CreationCommit" title="discipline.models.CreationCommit"><tt class="xref py py-class docutils literal"><span class="pre">CreationCommit</span></tt></a>, <a class="reference internal" href="#discipline.models.ModificationCommit" title="discipline.models.ModificationCommit"><tt class="xref py py-class docutils literal"><span class="pre">ModificationCommit</span></tt></a>, <a class="reference internal" href="#discipline.models.DeletionCommit" title="discipline.models.DeletionCommit"><tt class="xref py py-class docutils literal"><span class="pre">DeletionCommit</span></tt></a> objects, respectfully, associated with this action.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.timemachine">
+<tt class="descclassname">Action.</tt><tt class="descname">timemachine</tt><a class="headerlink" href="#discipline.models.Action.timemachine" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>An instance of the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> object for the object on which this action was performed. The time is set automatically to the time of this action.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.object_uid">
+<tt class="descclassname">Action.</tt><tt class="descname">object_uid</tt><a class="headerlink" href="#discipline.models.Action.object_uid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>The UUID of the object that the action was performed on.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.action_type">
+<tt class="descclassname">Action.</tt><tt class="descname">action_type</tt><a class="headerlink" href="#discipline.models.Action.action_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Either <tt class="docutils literal"><span class="pre">&quot;cr&quot;</span></tt>, <tt class="docutils literal"><span class="pre">&quot;md&quot;</span></tt> or <tt class="docutils literal"><span class="pre">&quot;dl&quot;</span></tt> for creation, modification and deletion, respectfully.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.is_revertible">
+<tt class="descclassname">Action.</tt><tt class="descname">is_revertible</tt><a class="headerlink" href="#discipline.models.Action.is_revertible" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A boolean representing whether it is possible to undo the action or not.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.undo_errors">
+<tt class="descclassname">Action.</tt><tt class="descname">undo_errors</tt><a class="headerlink" href="#discipline.models.Action.undo_errors" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>If it is not possible to undo the action, this will be a list of strings, each the text of an error, explaining why it is not possible.</p>
+<dl class="attribute">
+<dt id="discipline.models.Action.summary">
+<tt class="descclassname">Action.</tt><tt class="descname">summary</tt><a class="headerlink" href="#discipline.models.Action.summary" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A plaintext summary of the action: includes the editor, the time, the type and each modified field (if modification or creation). Useful for debugging:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="k">print</span> <span class="n">Action</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="go">Time: 2010-07-04 00:11:53.520869</span>
+<span class="go">Comitter: John Doe</span>
+<span class="go">Modified musician</span>
+<span class="go">name: Robert Frip -&gt; Robert Fripp</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="discipline.models.Action.get_absolute_url">
+<tt class="descclassname">Action.</tt><tt class="descname">get_absolute_url</tt><big>(</big><big>)</big><a class="headerlink" href="#discipline.models.Action.get_absolute_url" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>The URL to the Action object in the Django admin.</p>
+</div>
+<div class="section" id="editor">
+<h2><a class="reference internal" href="#discipline.models.Editor" title="discipline.models.Editor"><tt class="xref py py-class docutils literal"><span class="pre">Editor</span></tt></a><a class="headerlink" href="#editor" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="discipline.models.Editor">
+<em class="property">class </em><tt class="descclassname">discipline.models.</tt><tt class="descname">Editor</tt><a class="headerlink" href="#discipline.models.Editor" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt id="discipline.models.Editor.user">
+<tt class="descclassname">Editor.</tt><tt class="descname">user</tt><a class="headerlink" href="#discipline.models.Editor.user" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">ForeignKey</span></tt> pointing to a <tt class="xref py py-class docutils literal"><span class="pre">django.contrib.auth.models.User</span></tt>. Every user that is going to work on Discipline-controlled models has to have an <a class="reference internal" href="#discipline.models.Editor" title="discipline.models.Editor"><tt class="xref py py-class docutils literal"><span class="pre">Editor</span></tt></a> instance.</p>
+<dl class="method">
+<dt id="discipline.models.Editor.save_object">
+<tt class="descclassname">Editor.</tt><tt class="descname">save_object</tt><big>(</big><em>obj</em><big>)</big><a class="headerlink" href="#discipline.models.Editor.save_object" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Save a Django object <em>obj</em> and record everything necessary for Discipline. Use this in scripts, migrations and whenever you want to edit or create an instance of a Discipline-controlled model outside of the Django admin:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">obj</span> <span class="o">=</span> <span class="n">Concept</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">obj</span><span class="o">.</span><span class="n">save</span><span class="p">()</span> <span class="c"># Do NOT do this, instead, do this:</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">save_object</span><span class="p">(</span><span class="n">obj</span><span class="p">)</span>
+</pre></div>
+</div>
+<dl class="method">
+<dt id="discipline.models.Editor.delete_object">
+<tt class="descclassname">Editor.</tt><tt class="descname">delete_object</tt><big>(</big><em>obj</em><big>)</big><a class="headerlink" href="#discipline.models.Editor.delete_object" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Similarly to <a class="reference internal" href="#discipline.models.Editor.save_object" title="discipline.models.Editor.save_object"><tt class="xref py py-meth docutils literal"><span class="pre">save_object()</span></tt></a> above, use this instead of <tt class="docutils literal"><span class="pre">obj.delete()</span></tt> when interfacing with a Discipline-controlled model.</p>
+<dl class="method">
+<dt id="discipline.models.Editor.undo_action">
+<tt class="descclassname">Editor.</tt><tt class="descname">undo_action</tt><big>(</big><em>act</em><big>)</big><a class="headerlink" href="#discipline.models.Editor.undo_action" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>If <em>act</em> is revertible (see <a class="reference internal" href="#discipline.models.Action.is_revertible" title="discipline.models.Action.is_revertible"><tt class="xref py py-meth docutils literal"><span class="pre">is_revertible()</span></tt></a>), undo the action.</p>
+<p>For a deletion action, this will recreate the object just as it was before it was deleted (including its <em>uid</em> field!). For a creation action, it will delete the object. For a modification action, it will restore the object&#8217;s state as it was right before it was modified.</p>
+</div>
+<div class="section" id="timemachine-objects-at-different-points-in-time">
+<h2><a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> &#8211; Objects at different points in time<a class="headerlink" href="#timemachine-objects-at-different-points-in-time" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="discipline.models.TimeMachine">
+<em class="property">class </em><tt class="descclassname">discipline.models.</tt><tt class="descname">TimeMachine</tt><big>(</big><em>uid</em><span class="optional">[</span>, <em>when=None</em><span class="optional">[</span>, <em>step=None</em><span class="optional">]</span><span class="optional">]</span><big>)</big><a class="headerlink" href="#discipline.models.TimeMachine" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Create a <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> for the object with <em>uid</em> as the unique id. If <em>step</em> is given, initialize this <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> right before the <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> whose <em>id</em> matches <em>step</em>, if <em>when</em> (a <tt class="xref py py-class docutils literal"><span class="pre">datetime</span></tt> object) is given, initialize the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> at <em>when</em>, otherwise initialize in the present, <em>after</em> the last <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> in the database.</p>
+<dl class="method">
+<dt id="discipline.models.TimeMachine.at">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">at</tt><big>(</big><em>step</em><big>)</big><a class="headerlink" href="#discipline.models.TimeMachine.at" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Creates a new <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> instance for the same object initialized right before the <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> with the id <em>step</em>.</p>
+<dl class="attribute">
+<dt id="discipline.models.TimeMachine.presently">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">presently</tt><a class="headerlink" href="#discipline.models.TimeMachine.presently" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A shortcut using the above, the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> for the current object initialized after the last <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> in the database.</p>
+<dl class="attribute">
+<dt id="discipline.models.TimeMachine.at_previous_action">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">at_previous_action</tt><a class="headerlink" href="#discipline.models.TimeMachine.at_previous_action" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> for the current object initialized at the <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> before the current action of the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a>.</p>
+<dl class="attribute">
+<dt id="discipline.models.TimeMachine.current_action">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">current_action</tt><a class="headerlink" href="#discipline.models.TimeMachine.current_action" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>The action whose <em>id</em> field matches the <em>step</em> of this <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a>. Effectively, the action right &#8220;before&#8221; the time of the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a>.</p>
+<dl class="attribute">
+<dt id="discipline.models.TimeMachine.exists">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">exists</tt><a class="headerlink" href="#discipline.models.TimeMachine.exists" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A boolean indicating whether the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a>&#8216;s object exits at the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a>&#8216;s point in time.</p>
+<dl class="method">
+<dt id="discipline.models.TimeMachine.get_object">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">get_object</tt><big>(</big><big>)</big><a class="headerlink" href="#discipline.models.TimeMachine.get_object" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Returns the Django object at which the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> is looking. If it doesn&#8217;t exist, Django will raise an error.</p>
+<dl class="method">
+<dt id="discipline.models.TimeMachine.get">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">get</tt><big>(</big><em>fieldname</em><big>)</big><a class="headerlink" href="#discipline.models.TimeMachine.get" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Returns the value of the field <em>fieldname</em> of the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a>&#8216;s object as it was at the time of this <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a>, if a related object doesn&#8217;t exist anymore, Django will raise an error.</p>
+<dl class="method">
+<dt id="discipline.models.TimeMachine.get_timemachine_instance">
+<tt class="descclassname">TimeMachine.</tt><tt class="descname">get_timemachine_instance</tt><big>(</big><em>fieldname</em><big>)</big><a class="headerlink" href="#discipline.models.TimeMachine.get_timemachine_instance" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Returns a <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> for the object pointed by the field <em>fieldname</em>. It will be initialized in the present.</p>
+</div>
+<div class="section" id="schemastate-schema-migrations">
+<h2><a class="reference internal" href="#discipline.models.SchemaState" title="discipline.models.SchemaState"><tt class="xref py py-class docutils literal"><span class="pre">SchemaState</span></tt></a> &#8211; Schema Migrations<a class="headerlink" href="#schemastate-schema-migrations" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="discipline.models.SchemaState">
+<em class="property">class </em><tt class="descclassname">discipline.models.</tt><tt class="descname">SchemaState</tt><a class="headerlink" href="#discipline.models.SchemaState" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Discipline stores schema states initially and after every schema migration so that the <a class="reference internal" href="#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">TimeMachine</span></tt></a> can know what fields an object has at different points in time.</p>
+<dl class="attribute">
+<dt id="discipline.models.SchemaState.when">
+<tt class="descclassname">SchemaState.</tt><tt class="descname">when</tt><a class="headerlink" href="#discipline.models.SchemaState.when" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">DateTimeField</span></tt> indicating when the schema state was saved.</p>
+<dl class="attribute">
+<dt id="discipline.models.SchemaState.state">
+<tt class="descclassname">SchemaState.</tt><tt class="descname">state</tt><a class="headerlink" href="#discipline.models.SchemaState.state" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">TextField</span></tt> holding the <em>json</em> representation of the schema state. Do not use this.</p>
+<dl class="method">
+<dt id="discipline.models.SchemaState.get_for_content_type">
+<tt class="descclassname">SchemaState.</tt><tt class="descname">get_for_content_type</tt><big>(</big><em>ct</em><big>)</big><a class="headerlink" href="#discipline.models.SchemaState.get_for_content_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Takes a <tt class="xref py py-class docutils literal"><span class="pre">django.contrib.contenttypes.models.ContentType</span></tt> object and returns a dict in the form of <tt class="docutils literal"><span class="pre">{&quot;fields&quot;:[&quot;field1&quot;,</span> <span class="pre">&quot;field2&quot;],</span> <span class="pre">&quot;foreignkeys&quot;:[&quot;fk1&quot;]}</span></tt> where <em>fields</em> are all non-<tt class="xref py py-class docutils literal"><span class="pre">ForeignKey</span></tt> fields.</p>
+</div>
+<div class="section" id="creationcommit-modificationcommit-deletioncommit-at-the-lowest-level">
+<h2><a class="reference internal" href="#discipline.models.CreationCommit" title="discipline.models.CreationCommit"><tt class="xref py py-class docutils literal"><span class="pre">CreationCommit</span></tt></a>, <a class="reference internal" href="#discipline.models.ModificationCommit" title="discipline.models.ModificationCommit"><tt class="xref py py-class docutils literal"><span class="pre">ModificationCommit</span></tt></a>, <a class="reference internal" href="#discipline.models.DeletionCommit" title="discipline.models.DeletionCommit"><tt class="xref py py-class docutils literal"><span class="pre">DeletionCommit</span></tt></a> &#8211; At the lowest level<a class="headerlink" href="#creationcommit-modificationcommit-deletioncommit-at-the-lowest-level" title="Permalink to this headline">¶</a></h2>
+<p>The essense of each change is stored in <a class="reference internal" href="#discipline.models.CreationCommit" title="discipline.models.CreationCommit"><tt class="xref py py-class docutils literal"><span class="pre">CreationCommit</span></tt></a>, <a class="reference internal" href="#discipline.models.ModificationCommit" title="discipline.models.ModificationCommit"><tt class="xref py py-class docutils literal"><span class="pre">ModificationCommit</span></tt></a> and <a class="reference internal" href="#discipline.models.DeletionCommit" title="discipline.models.DeletionCommit"><tt class="xref py py-class docutils literal"><span class="pre">DeletionCommit</span></tt></a> objects. Every creation action is composed of one <a class="reference internal" href="#discipline.models.CreationCommit" title="discipline.models.CreationCommit"><tt class="xref py py-class docutils literal"><span class="pre">CreationCommit</span></tt></a> and as many <a class="reference internal" href="#discipline.models.ModificationCommit" title="discipline.models.ModificationCommit"><tt class="xref py py-class docutils literal"><span class="pre">ModificationCommit</span></tt></a> objects as there are fields. Every modification action is composed of as many <a class="reference internal" href="#discipline.models.ModificationCommit" title="discipline.models.ModificationCommit"><tt class="xref py py-class docutils literal"><span class="pre">ModificationCommit</span></tt></a> objects as there are fields <em>modified</em>. Every deletion action is composed of a single <a class="reference internal" href="#discipline.models.DeletionCommit" title="discipline.models.DeletionCommit"><tt class="xref py py-class docutils literal"><span class="pre">DeletionCommit</span></tt></a>.</p>
+<dl class="class">
+<dt id="discipline.models.CreationCommit">
+<em class="property">class </em><tt class="descclassname">discipline.models.</tt><tt class="descname">CreationCommit</tt><a class="headerlink" href="#discipline.models.CreationCommit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Records the creation of an object. Has three fields:</p>
+<dl class="attribute">
+<dt id="discipline.models.CreationCommit.content_type">
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">content_type</tt><a class="headerlink" href="#discipline.models.CreationCommit.content_type" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">ForeignKey</span></tt> pointing at a <tt class="xref py py-class docutils literal"><span class="pre">django.contrib.contenttypes.models.ContentType</span></tt> object.</p>
+<dl class="attribute">
+<dt id="discipline.models.CreationCommit.object_uid">
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">object_uid</tt><a class="headerlink" href="#discipline.models.CreationCommit.object_uid" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">UUIDField</span></tt> storing the new object&#8217;s unique id.</p>
+<dl class="attribute">
+<dt id="discipline.models.CreationCommit.action">
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">action</tt><a class="headerlink" href="#discipline.models.CreationCommit.action" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">ForeignKey</span></tt> pointing at an <a class="reference internal" href="#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">Action</span></tt></a> to which this <a class="reference internal" href="#discipline.models.CreationCommit" title="discipline.models.CreationCommit"><tt class="xref py py-class docutils literal"><span class="pre">CreationCommit</span></tt></a> belongs.</p>
+<dl class="class">
+<dt id="discipline.models.ModificationCommit">
+<em class="property">class </em><tt class="descclassname">discipline.models.</tt><tt class="descname">ModificationCommit</tt><a class="headerlink" href="#discipline.models.ModificationCommit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Records the modification of a single field of a single object. Has four fields:</p>
+<dl class="attribute">
+<dt>
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">object_uid</tt></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt>
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">action</tt></dt>
+<dd></dd></dl>
+
+<p>See above.</p>
+<dl class="attribute">
+<dt id="discipline.models.CreationCommit.key">
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">key</tt><a class="headerlink" href="#discipline.models.CreationCommit.key" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">CharField</span></tt> storing the fieldname.</p>
+<dl class="attribute">
+<dt id="discipline.models.CreationCommit.value">
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">value</tt><a class="headerlink" href="#discipline.models.CreationCommit.value" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>A <tt class="xref py py-class docutils literal"><span class="pre">TextField</span></tt> storing the value of the field serialized by <tt class="xref py py-class docutils literal"><span class="pre">cPickle</span></tt>.</p>
+<dl class="class">
+<dt id="discipline.models.DeletionCommit">
+<em class="property">class </em><tt class="descclassname">discipline.models.</tt><tt class="descname">DeletionCommit</tt><a class="headerlink" href="#discipline.models.DeletionCommit" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<p>Records the deletion of a single object. Has two fields:</p>
+<dl class="attribute">
+<dt>
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">object_uid</tt></dt>
+<dd></dd></dl>
+
+<dl class="attribute">
+<dt>
+<tt class="descclassname">CreationCommit.</tt><tt class="descname">action</tt></dt>
+<dd></dd></dl>
+
+<p>See above.</p>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">API Reference</a><ul>
+<li><a class="reference internal" href="#action-a-unit-of-change"><tt class="docutils literal"><span class="pre">Action</span></tt> &#8211; A unit of change</a></li>
+<li><a class="reference internal" href="#editor"><tt class="docutils literal"><span class="pre">Editor</span></tt></a></li>
+<li><a class="reference internal" href="#timemachine-objects-at-different-points-in-time"><tt class="docutils literal"><span class="pre">TimeMachine</span></tt> &#8211; Objects at different points in time</a></li>
+<li><a class="reference internal" href="#schemastate-schema-migrations"><tt class="docutils literal"><span class="pre">SchemaState</span></tt> &#8211; Schema Migrations</a></li>
+<li><a class="reference internal" href="#creationcommit-modificationcommit-deletioncommit-at-the-lowest-level"><tt class="docutils literal"><span class="pre">CreationCommit</span></tt>, <tt class="docutils literal"><span class="pre">ModificationCommit</span></tt>, <tt class="docutils literal"><span class="pre">DeletionCommit</span></tt> &#8211; At the lowest level</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="tutorial.html"
+                        title="previous chapter">Tutorial</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/reference.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="tutorial.html" title="Tutorial"
+             >previous</a> |</li>
+        <li><a href="index.html">Discipline 0.9 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Alexei Boronine.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
+    </div>
+  </body>
+</html>

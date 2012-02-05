@@ -1,0 +1,283 @@
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>Tutorial &mdash; Discipline 0.9 documentation</title>
+    
+    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '',
+        VERSION:     '0.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <link rel="top" title="Discipline 0.9 documentation" href="index.html" />
+    <link rel="next" title="API Reference" href="reference.html" />
+    <link rel="prev" title="Introduction" href="intro.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="reference.html" title="API Reference"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction"
+             accesskey="P">previous</a> |</li>
+        <li><a href="index.html">Discipline 0.9 documentation</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <div class="section" id="tutorial">
+<h1>Tutorial<a class="headerlink" href="#tutorial" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Permalink to this headline">¶</a></h2>
+<p>Get the latest code from <a class="reference external" href="http://github.com/alexeiboronine/discipline/downloads">the downloads page</a>, unpack and run <tt class="docutils literal"><span class="pre">python</span> <span class="pre">setup.py</span> <span class="pre">install</span></tt></p>
+<p>Add Discipline to the <tt class="docutils literal"><span class="pre">INSTALLED_APPS</span></tt> in your project&#8217;s <tt class="docutils literal"><span class="pre">settings.py</span></tt> file. It is highly advised to use Discipline with <a class="reference external" href="http://south.aeracode.org/">South</a>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="n">INSTALLED_APPS</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s">&#39;django.contrib.auth&#39;</span><span class="p">,</span>
+    <span class="s">&#39;django.contrib.contenttypes&#39;</span><span class="p">,</span>
+    <span class="s">&#39;django.contrib.sessions&#39;</span><span class="p">,</span>
+    <span class="s">&#39;django.contrib.sites&#39;</span><span class="p">,</span>
+    <span class="s">&#39;django.contrib.messages&#39;</span><span class="p">,</span>
+    <span class="s">&#39;django.contrib.admin&#39;</span><span class="p">,</span>
+    <span class="s">&#39;discipline&#39;</span><span class="p">,</span>
+    <span class="s">&#39;south&#39;</span><span class="p">,</span>
+    <span class="s">&#39;testapp&#39;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Every model controlled by Discipline has to inherit from the <tt class="xref py py-class docutils literal"><span class="pre">discipline.models.DisciplinedModel</span></tt> class, keep in mind the following limitations:</p>
+<ul class="simple">
+<li>Discipline can&#8217;t work with <tt class="xref py py-class docutils literal"><span class="pre">ManyToManyField</span></tt> or <tt class="xref py py-class docutils literal"><span class="pre">OneToOneField</span></tt>.</li>
+<li>If a Discipline-controlled model is related to another model, the other one <em>has</em> to be Discipline-controlled as well.</li>
+<li>Discipline will force every Discipline-controlled model to have a <tt class="xref py py-class docutils literal"><span class="pre">discipline.models.UUIDField</span></tt> as its primary key, with the field name <em>uid</em>.</li>
+</ul>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">django.db</span> <span class="kn">import</span> <span class="n">models</span>
+<span class="kn">from</span> <span class="nn">discipline.models</span> <span class="kn">import</span> <span class="n">DisciplinedModel</span>
+
+<span class="k">class</span> <span class="nc">LanguageKey</span><span class="p">(</span><span class="n">DisciplinedModel</span><span class="p">):</span>
+    <span class="n">code</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span><span class="n">unique</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">Word</span><span class="p">(</span><span class="n">DisciplinedModel</span><span class="p">):</span>
+    <span class="n">text</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">CharField</span><span class="p">(</span><span class="n">max_length</span><span class="o">=</span><span class="mi">70</span><span class="p">,</span><span class="n">db_index</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+    <span class="n">language</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span><span class="s">&quot;LanguageKey&quot;</span><span class="p">,</span> <span class="n">related_name</span><span class="o">=</span><span class="s">&quot;words&quot;</span><span class="p">)</span>
+
+<span class="k">class</span> <span class="nc">Concept</span><span class="p">(</span><span class="n">DisciplinedModel</span><span class="p">):</span>
+    <span class="k">pass</span>
+
+<span class="k">class</span> <span class="nc">WordConceptConnection</span><span class="p">(</span><span class="n">DisciplinedModel</span><span class="p">):</span>
+    <span class="n">word</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+        <span class="s">&quot;Word&quot;</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s">&quot;concept_connections&quot;</span>
+    <span class="p">)</span>
+    <span class="n">concept</span> <span class="o">=</span> <span class="n">models</span><span class="o">.</span><span class="n">ForeignKey</span><span class="p">(</span>
+        <span class="s">&quot;Concept&quot;</span><span class="p">,</span>
+        <span class="n">related_name</span><span class="o">=</span><span class="s">&quot;word_connections&quot;</span>
+    <span class="p">)</span>
+</pre></div>
+</div>
+<p>Similarly, in your <tt class="docutils literal"><span class="pre">admin.py</span></tt> file, you have to register these models with <tt class="xref py py-class docutils literal"><span class="pre">discipline.admin.DisciplinedModelAdmin</span></tt>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="kn">from</span> <span class="nn">django.contrib</span> <span class="kn">import</span> <span class="n">admin</span>
+
+<span class="kn">from</span> <span class="nn">discipline.admin</span> <span class="kn">import</span> <span class="n">DisciplinedModelAdmin</span>
+<span class="kn">from</span> <span class="nn">testproject.testapp.models</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">admin</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Concept</span><span class="p">,</span> <span class="n">DisciplinedModelAdmin</span><span class="p">)</span>
+<span class="n">admin</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">Word</span><span class="p">,</span> <span class="n">DisciplinedModelAdmin</span><span class="p">)</span>
+<span class="n">admin</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">WordConceptConnection</span><span class="p">,</span> <span class="n">DisciplinedModelAdmin</span><span class="p">)</span>
+<span class="n">admin</span><span class="o">.</span><span class="n">site</span><span class="o">.</span><span class="n">register</span><span class="p">(</span><span class="n">LanguageKey</span><span class="p">,</span> <span class="n">DisciplinedModelAdmin</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>A very important step, you have to tell Discipline about your current models (More about this in <a class="reference internal" href="#migrations"><em>Migrations</em></a>):</p>
+<div class="highlight-python"><pre>$ python manage.py discipline_migrate</pre>
+</div>
+<p>Lastly, you need to create a <a class="reference internal" href="reference.html#discipline.models.Editor" title="discipline.models.Editor"><tt class="xref py py-class docutils literal"><span class="pre">discipline.models.Editor</span></tt></a> object to be able to use Discipline (assuming you have run <tt class="docutils literal"><span class="pre">syncdb</span></tt> and have a user object):</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">django.contrib.auth.models</span> <span class="kn">import</span> <span class="n">User</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">discipline.models</span> <span class="kn">import</span> <span class="n">Editor</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">me</span> <span class="o">=</span> <span class="n">User</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editorme</span> <span class="o">=</span> <span class="n">Editor</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">user</span><span class="o">=</span><span class="n">me</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Now your environment should be Discipline-ready, fire up the test server and experiment with creating, modifying and deleting objects.</p>
+</div>
+<div class="section" id="introduction-to-the-api">
+<h2>Introduction to the API<a class="headerlink" href="#introduction-to-the-api" title="Permalink to this headline">¶</a></h2>
+<p>When using the shell, you should never call Django objects&#8217; <cite>save</cite> and <cite>delete</cite> methods: these don&#8217;t register the actions with Discipline and can compromise the integrity of your data. Instead, you should use the <a class="reference internal" href="reference.html#discipline.models.Editor" title="discipline.models.Editor"><tt class="xref py py-class docutils literal"><span class="pre">discipline.models.Editor</span></tt></a>&#8216;s <a class="reference internal" href="reference.html#discipline.models.Editor.save_object" title="discipline.models.Editor.save_object"><tt class="xref py py-meth docutils literal"><span class="pre">save_object()</span></tt></a> and <a class="reference internal" href="reference.html#discipline.models.Editor.delete_object" title="discipline.models.Editor.delete_object"><tt class="xref py py-meth docutils literal"><span class="pre">delete_object()</span></tt></a>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span> <span class="o">=</span> <span class="n">Editor</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lk</span> <span class="o">=</span> <span class="n">LanguageKey</span><span class="p">(</span><span class="n">code</span><span class="o">=</span><span class="s">&quot;eng&quot;</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">save_object</span><span class="p">(</span><span class="n">lk</span><span class="p">)</span> <span class="c"># CREATION</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lk</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="s">&quot;rus&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">save_object</span><span class="p">(</span><span class="n">lk</span><span class="p">)</span> <span class="c"># MODIFICATION</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">delete_object</span><span class="p">(</span><span class="n">lk</span><span class="p">)</span> <span class="c"># DELETION</span>
+</pre></div>
+</div>
+<p>For every change, a <a class="reference internal" href="reference.html#discipline.models.Action" title="discipline.models.Action"><tt class="xref py py-class docutils literal"><span class="pre">discipline.models.Action</span></tt></a> object is created, let&#8217;s look at the last ones:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">action</span> <span class="ow">in</span> <span class="n">Action</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
+<span class="gp">... </span>    <span class="k">print</span> <span class="n">action</span><span class="o">.</span><span class="n">summary</span>
+<span class="gp">...</span>
+<span class="go">Time: 2010-07-04 01:28:09.922254</span>
+<span class="go">Comitter: John Doe</span>
+<span class="go">Deleted language key</span>
+<span class="go">code: rus</span>
+
+<span class="go">Time: 2010-07-04 01:28:04.107404</span>
+<span class="go">Comitter: John Doe</span>
+<span class="go">Modified language key</span>
+<span class="go">code: eng -&gt; rus</span>
+
+<span class="go">Time: 2010-07-04 01:27:58.230695</span>
+<span class="go">Comitter: John Doe</span>
+<span class="go">Created language key</span>
+<span class="go">code: eng</span>
+</pre></div>
+</div>
+<p>You can undo many actions with <a class="reference internal" href="reference.html#discipline.models.Editor.undo_action" title="discipline.models.Editor.undo_action"><tt class="xref py py-meth docutils literal"><span class="pre">undo_action()</span></tt></a>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">undo_action</span><span class="p">(</span><span class="n">Action</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">latest</span><span class="p">())</span> <span class="c"># Undo last action</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Action</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">latest</span><span class="p">()</span><span class="o">.</span><span class="n">summary</span> <span class="c"># A new action has been created</span>
+<span class="go">Time: 2010-07-04 01:27:58.230695</span>
+<span class="go">Comitter: John Doe</span>
+<span class="go">Created language key</span>
+<span class="go">code: rus</span>
+</pre></div>
+</div>
+<p>Some actions you can&#8217;t undo, however:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">privet</span> <span class="o">=</span> <span class="n">Word</span><span class="p">(</span><span class="n">text</span><span class="o">=</span><span class="s">&quot;privet&quot;</span><span class="p">,</span> <span class="n">language</span><span class="o">=</span><span class="n">lk</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">save_object</span><span class="p">(</span><span class="n">privet</span><span class="p">)</span> <span class="c"># Create privet</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">delete_object</span><span class="p">(</span><span class="n">privet</span><span class="p">)</span> <span class="c"># Delete privet</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">deleted_privet</span> <span class="o">=</span> <span class="n">Action</span><span class="o">.</span><span class="n">objects</span><span class="o">.</span><span class="n">latest</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">editor</span><span class="o">.</span><span class="n">delete_object</span><span class="p">(</span><span class="n">lk</span><span class="p">)</span> <span class="c"># Delete privet&#39;s language</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">deleted_privet</span><span class="o">.</span><span class="n">is_revertible</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">deleted_privet</span><span class="o">.</span><span class="n">undo_errors</span>
+<span class="go">[&quot;Cannot undo action 5: the word used to link to a language key that has since been deleted&quot;]</span>
+</pre></div>
+</div>
+<p>We can look at objects at different points in time with <a class="reference internal" href="reference.html#discipline.models.TimeMachine" title="discipline.models.TimeMachine"><tt class="xref py py-class docutils literal"><span class="pre">discipline.models.TimeMachine</span></tt></a>:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="n">tm</span> <span class="o">=</span> <span class="n">TimeMachine</span><span class="p">(</span><span class="n">privet</span><span class="o">.</span><span class="n">uid</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tm</span><span class="o">.</span><span class="n">presently</span><span class="o">.</span><span class="n">exists</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tm</span><span class="o">.</span><span class="n">at_previous_action</span><span class="o">.</span><span class="n">exists</span>
+<span class="go">False</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tm</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">exists</span> <span class="c"># At action with id 4</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tm</span><span class="o">.</span><span class="n">at</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">&quot;text&quot;</span><span class="p">)</span>
+<span class="go">&quot;privet&quot;</span>
+</pre></div>
+</div>
+<p>Take a look at <a class="reference internal" href="reference.html"><em>API Reference</em></a> for more API.</p>
+</div>
+<div class="section" id="migrations">
+<span id="id1"></span><h2>Migrations<a class="headerlink" href="#migrations" title="Permalink to this headline">¶</a></h2>
+<p>Discipline is designed to gracefully handle schema migrations and offers <a class="reference internal" href="reference.html#discipline.models.Editor.save_object" title="discipline.models.Editor.save_object"><tt class="xref py py-meth docutils literal"><span class="pre">save_object()</span></tt></a> and <a class="reference internal" href="reference.html#discipline.models.Editor.delete_object" title="discipline.models.Editor.delete_object"><tt class="xref py py-meth docutils literal"><span class="pre">delete_object()</span></tt></a> for data migrations.</p>
+<p>Every time you run a schema migration you must run:</p>
+<div class="highlight-python"><pre>$ python manage.py discipline_migrate</pre>
+</div>
+<p>for Discipline to register the new schema state. If you use <a class="reference external" href="http://south.aeracode.org/">South</a> (and you should!), Discipline will run this command whenever it senses a South migration.</p>
+<p>If you have a data migration that creates models or fields <em>and</em> deletes models or fields (for example, renaming actually involves creating a new one, migrating the data, then deleting the old one), you must run <em>discipline_migrate</em> after <em>each</em> schema migration!</p>
+<ol class="arabic simple">
+<li>Create new models and fields.</li>
+<li>Migrate schema with South or manually.</li>
+<li>Run <tt class="docutils literal"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">discipline_migrate</span></tt>.</li>
+<li>Migrate data using <a class="reference internal" href="reference.html#discipline.models.Editor.save_object" title="discipline.models.Editor.save_object"><tt class="xref py py-meth docutils literal"><span class="pre">save_object()</span></tt></a> and <a class="reference internal" href="reference.html#discipline.models.Editor.delete_object" title="discipline.models.Editor.delete_object"><tt class="xref py py-meth docutils literal"><span class="pre">delete_object()</span></tt></a>.</li>
+<li>Delete obsolete models and fields.</li>
+<li>Migrate schema with South or manually.</li>
+<li>Run <tt class="docutils literal"><span class="pre">python</span> <span class="pre">manage.py</span> <span class="pre">discipline_migrate</span></tt>.</li>
+</ol>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Tutorial</a><ul>
+<li><a class="reference internal" href="#getting-started">Getting Started</a></li>
+<li><a class="reference internal" href="#introduction-to-the-api">Introduction to the API</a></li>
+<li><a class="reference internal" href="#migrations">Migrations</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="intro.html"
+                        title="previous chapter">Introduction</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="reference.html"
+                        title="next chapter">API Reference</a></p>
+  <h3>This Page</h3>
+  <ul class="this-page-menu">
+    <li><a href="_sources/tutorial.txt"
+           rel="nofollow">Show Source</a></li>
+  </ul>
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="reference.html" title="API Reference"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="intro.html" title="Introduction"
+             >previous</a> |</li>
+        <li><a href="index.html">Discipline 0.9 documentation</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2010, Alexei Boronine.
+      Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.1.2.
+    </div>
+  </body>
+</html>
