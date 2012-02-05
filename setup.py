@@ -17,8 +17,8 @@ setup(
     author="Alexei Boronine",
     license="MIT",
     author_email="alexei.boronine@gmail.com",
-    url="http://github.com/alexeiboronine/discipline",
-    download_url="http://github.com/alexeiboronine/discipline/downloads",
+    url="http://github.com/boronine/discipline",
+    download_url="http://github.com/boronine/discipline/downloads",
     keywords="django versioning version control",
     classifiers=[
         "Development Status :: 4 - Beta",
